@@ -10,6 +10,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
+import os
+from shutil import which
+from selenium import webdriver
 
 
 @dataclass(frozen=True)
@@ -30,14 +33,34 @@ class SeleniumClient:
 
     def start(self) -> None:
         chrome_options = Options()
+
+        # Common options
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         chrome_options.add_experimental_option("useAutomationExtension", False)
 
-        service = Service(ChromeDriverManager().install())
+        # Detect environment (Pi / server)
+        chromium_path = which("chromium-browser")
+        chromedriver_path = which("chromedriver")
+
+        if chromium_path and chromedriver_path:
+            #  Raspberry Pi / Linux server
+            chrome_options.binary_location = chromium_path
+            chrome_options.add_argument("--headless=new")
+
+            service = Service(chromedriver_path)
+
+        else:
+            #  Laptop / fallback
+            from webdriver_manager.chrome import ChromeDriverManager
+            service = Service(ChromeDriverManager().install())
+
         self.driver = webdriver.Chrome(service=service, options=chrome_options)
         self.wait = WebDriverWait(self.driver, self.config.default_timeout)
+
+
+
 
     def login(self, login_url: str, user: str, password: str) -> None:
         if not self.driver or not self.wait:
