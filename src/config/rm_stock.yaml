@@ -1,0 +1,137 @@
+# - IRON ORE PELLETS
+# - LLOYDS METALS & ENERGY LIMITED
+# - Sarda Energy & Minerals Limited
+# - "Iron Ore Pellets: Total"
+
+# - NMDC Limited Lumps (10-150 MM) (Kirandul)
+
+# - MANGANESE ORE
+# - S S Enterprises - High Manganese
+# - ACORE INDUSTRIES PRIVATE LIMITED (MANGANESE ORE LUMP)
+# - TIRUPATI MINERALS & METALS (MANGANESE ORE LUMP)
+# - "Maganese Ore : Total"
+
+# - Iron Ore CLO
+# - Gomti Infra and Mining Pvt Ltd
+# - Geomin Industries
+# - NMDC Limited (Donimalai)
+# - NMDC Limited (Kirandul) By Rake
+# - JAYASWAL NECO INDUSTRIES LIMITED
+# - Lloyds Metals & Energy (62%)
+# - Lloyds Metals Iron Fines Oversize (+10MM)
+# - NMDC Limited (Donimalai) Iron Fines Oversize (+10MM)
+# - NMDC Limited (Bachelli) Iron Fines Oversize (+10MM)
+# - "Iron Ore CLO: Total"
+
+# - NMDC CLO Oversize (+40MM) (Donimalai)
+# - Lloyds Metals & Energy CLO Oversize (+40MM)
+# - "Iron Ore CLO/Fines Oversize (+40MM): Total"
+
+# - NMDC Limited Crushed ROM (10-40MM) (Kirandul)
+# - NMDC CLO Oversize (+10MM) (Donimalai)
+# - Lloyds Metals CLO Oversize (+10MM)
+# - "CRUSHED IRON ORE: Total"
+# - "Iron Ore CLO : Total"
+# - "Iron Ore ROM, CLO & Maganese Ore: Total"
+
+# - Coke Item
+# - EML LAM Coke/Wharf Coke (Offline from Yard)
+# - LAM Coke (Purchase)
+# - IMR METALLURGICAL (MV MAXWELL)_A/C EML (Vizag)
+# - IMR METALLURGICAL (MV PERCEFS)_A/C EML (Vizag)
+# - INDIA COKE (Krishnapatnam/Paradeep)
+# - THE SANDUR MANGANESE & IRON ORES LTD
+# - TAMILNADU COKE AND POWER LIMITED
+# - SHRINIKA IMPEX PRIVATE LIMITED
+# - MOHAN FABTEX LIMITED
+# - MTS MINERALS PRIVATE LIMITED
+# - NILANCHAL CARBO METALICKS (Jajpur)
+# - ARJAS STEEL PRIVATE LIMITED
+# - AQUA TERRA COKE AND ENERGY LIMITED
+# - "LAM Coke (Purchase) : Total"
+
+# - EML Nut Coke
+# - NUT Coke (Purchase)
+# - EVIAN REFRACTORIES
+# - INDIA COKE AND POWER PVT LTD
+# - NILANCHAL CARBO METALICKS
+# - NILANCHAL CARBO METALICKS (Vizag)
+# - SUVIDHI ENERGY
+# - "NUT Coke : Total (Purchse)"
+# - "NUT Coke : Total"
+# - "Coke : Total"
+
+# - Flux for BF
+# - Titaniferrous Iron CLO
+# - Lime Stone
+# - Dolomite
+# - Quartzite
+
+
+
+# ---------------- IRON ORE PELLETS ----------------
+LLOYDS METALS & ENERGY LIMITED: lloyds_mt
+Sarda Energy & Minerals Limited: lloyds_pellet_sarda_mt
+
+# ---------------- NMDC ----------------
+NMDC Limited (Donimalai): nmdc_donimalai_mt
+NMDC Limited (Kirandul) By Rake: nmdc_rom_mt
+NMDC Limited (Bachelli): nmdc_bachelli_mt
+NMDC Limited Lumps (10-150 MM) (Kirandul): nmdc_rom_lumps_kirandul_mt
+
+# ---------------- PRIVATE SUPPLIERS ----------------
+Gomti Infra and Mining Pvt Ltd: gomti_mt
+Geomin Industries: geomin_mt
+JAYASWAL NECO INDUSTRIES LIMITED: jayaswal_neco_mt
+
+# ---------------- LLOYDS VARIANTS ----------------
+Lloyds Metals & Energy (62%): lloyds_mt_62
+Lloyds Metals Iron Fines Oversize (+10MM): lloyds_fines_oversize_10mm_mt
+Lloyds Metals CLO Oversize (+10MM): lloyds_clo_oversize_10mm_mt
+Lloyds Metals & Energy CLO Oversize (+40MM): lloyds_clo_oversize_40mm_mt
+
+# ---------------- NMDC FINES / OVERSIZE ----------------
+NMDC Limited (Donimalai) Iron Fines Oversize (+10MM): nmdc_donimalai_fines_oversize_10mm_mt
+NMDC Limited (Bachelli) Iron Fines Oversize (+10MM): nmdc_bachelli_fines_oversize_10mm_mt
+NMDC CLO Oversize (+10MM) (Donimalai): nmdc_donimalai_clo_oversize_10mm_mt
+NMDC CLO Oversize (+40MM) (Donimalai): nmdc_donimalai_clo_oversize_40mm_mt
+
+# ---------------- MANGANESE ----------------
+S S Enterprises - High Manganese: ss_enterprises_mt
+ACORE INDUSTRIES PRIVATE LIMITED (MANGANESE ORE LUMP): acore_mt
+TIRUPATI MINERALS & METALS (MANGANESE ORE LUMP): tirupati_mt
+
+# ---------------- COKE ----------------
+EML LAM Coke/Wharf Coke (Offline from Yard): eml_coke_mt
+LAM Coke (Purchase): lam_coke_mt
+IMR METALLURGICAL (MV MAXWELL)_A/C EML (Vizag): imr_mt
+IMR METALLURGICAL (MV PERCEFS)_A/C EML (Vizag): imr_mt
+INDIA COKE (Krishnapatnam/Paradeep): india_coke_mt
+THE SANDUR MANGANESE & IRON ORES LTD: sandur_mt
+TAMILNADU COKE AND POWER LIMITED: tamilnadu_coke_mt
+SHRINIKA IMPEX PRIVATE LIMITED: shrinika_mt
+MOHAN FABTEX LIMITED: mohan_mt
+MTS MINERALS PRIVATE LIMITED: mts_mt
+NILANCHAL CARBO METALICKS (Jajpur): nilanchal_mt
+ARJAS STEEL PRIVATE LIMITED: arjas_mt
+AQUA TERRA COKE AND ENERGY LIMITED: aqua_mt
+
+# ---------------- NUT COKE ----------------
+EML Nut Coke: eml_nut_mt
+NUT Coke (Purchase): nut_coke_mt
+EVIAN REFRACTORIES: evian_mt
+INDIA COKE AND POWER PVT LTD: india_coke_power_mt
+NILANCHAL CARBO METALICKS: nilanchal_mt
+NILANCHAL CARBO METALICKS (Vizag): nilanchal_mt
+SUVIDHI ENERGY: suvidhi_mt
+
+# ---------------- FLUX ----------------
+Titaniferrous Iron CLO: titaniferrous_mt
+Lime Stone: limestone_mt
+Dolomite: dolomite_mt
+Quartzite: quartzite_mt
+
+#---------------SINTER----------------
+"G-1 TOTAL": g1_total_mt
+"G-2 TOTAL": g2_total_mt
+"G-3 TOTAL": g3_total_mt

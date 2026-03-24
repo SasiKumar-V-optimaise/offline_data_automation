@@ -1,0 +1,33 @@
+hot_metal:
+  hot_metal_config:
+    sheet_name: JAN-26
+    sheets:
+      JAN-26:
+        columns: A:Z
+        header_row: [3, 4]
+
+  hot_metal_fields:
+    EML LAB SAMPLE ID: lab_sample_id
+    DATE: date
+    CAST NO(Ladle No.) | SPECIFICATION: cast_no_ladle_spec
+    "H.M.T. | >1480⁰C": hmt_gt_1480c
+    "%C": chem_pct_c
+    "%Mn": chem_pct_mn
+    "%Si | < 0.80 % [EFFECT FROM 01.06.2020 ONWORDS]": chem_pct_si
+    "%S | < 0.050 %": chem_pct_s
+    "%P": chem_pct_p
+    "%Ti": chem_pct_ti
+    "%Cr": chem_pct_cr
+    "%Fe": chem_pct_fe
+    "%SiO2": slag_pct_sio2
+    "%CaO": slag_pct_cao
+    "%MgO": slag_pct_mgo
+    "%Al2O3": slag_pct_al2o3
+    "%FeO": slag_pct_feo
+    "%MnO": slag_pct_mno
+    "%S": slag_pct_s
+    "%Na2O": slag_pct_na2o
+    "%K2O": slag_pct_k2o
+    "%TiO2": slag_pct_tio2
+    BASICITY: slag_basicity
+    T.BASICITY: slag_t_basicity

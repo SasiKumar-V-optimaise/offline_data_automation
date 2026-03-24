@@ -1,0 +1,166 @@
+dpr_config:
+  sheets:
+    Jan26:
+      sheet_name: 'Jan''26 '
+      date_row: 5
+      date_cols:
+      - H
+      - AM
+      rename_map:
+        COKE_OFFLINE_MT:
+        - Total purchase coke
+        COKE_ONLINE_MT:
+        - Coke Online - EML
+        DOLOMITE_MT:
+        - Dolomite
+        GEOMIN_MT:
+        - Geomine industries
+        JRSVENTURES_MT:
+        - JRS VENTURES
+        LLOYDS_FINES_MT:
+        - Llyods fines oversize(+10mm)
+        - Lloyds fines oversize
+        LLOYDS_MT:
+        - Lloyds metal energy
+        TOTAL_PELLET_MT:
+        - Total Pellet
+        NMDC_MT:
+        - NMDC DONIMALAI
+        PCI_MT:
+        - PCI Coal
+        PRIME_NUT_COKE_MT:
+        - Prime Nut Coke (B-13)
+        QUARTZITE_MT:
+        - Quartzite
+        SINTER_SP_02_MT:
+        - Online+Offline Sinter
+        YARD_NUTCOKE_MT:
+        - Yard Nut Coke (B-3)
+        SLAG_GENERATION_MT:
+        - Slag Generation (Calculated)
+        NMDC_ROM_MT:
+        - NMDC ROM
+        Acore MN Ore_MT:
+        - Acore MN Ore
+        GOMTI_MT:
+        - Gomati
+        TOTAL_COKE_MT:
+        - Total Coke
+        TOTAL_HOT_METAL_MT:
+        - Total Hot Metal Production
+      rows:
+        Coke Online - EML: 282
+        Dolomite: 251
+        Geomine industries: 128
+        JRS VENTURES: 0
+        Lloyds metal energy: 177
+        Llyods fines oversize(+10mm): 0
+        Lloyds fines oversize: 114
+        Total Pellet: 107
+        NMDC DONIMALAI: 163
+        Online+Offline Sinter: 30
+        PCI Coal: 29
+        Prime Nut Coke (B-13): 27
+        Quartzite: 252
+        Total purchase coke: 286
+        Yard Nut Coke (B-3): 28
+        Slag Generation (Calculated): 15
+        NMDC ROM: 0
+        Acore MN Ore: 121
+        Gomati: 184
+        Total Hot Metal Production: 7
+    Mar26:
+      sheet_name: Mar'26
+      date_row: 5
+      date_cols:
+      - H
+      - AM
+      rename_map:
+        COKE_OFFLINE_MT:
+        - Coke Offline - EML
+        COKE_ONLINE_MT:
+        - Coke Online - EML
+        TOtAL_PURCHASE_COKE_MT:
+        - Total purchase coke
+        DOLOMITE_MT:
+        - Dolomite
+        GEOMIN_MT:
+        - Geomine industries
+        JRSVENTURES_MT:
+        - JRS VENTURES
+        LLOYDS_FINES_MT:
+        - Llyods fines oversize(+10mm)
+        - Lloyds fines oversize
+        LLOYDS_MT:
+        - Lloyds metal energy
+        TOTAL_PELLET_MT:
+        - Total Pellet
+        NMDC_MT:
+        - NMDC DONIMALAI
+        PCI_MT:
+        - PCI Coal
+        PRIME_NUT_COKE_MT:
+        - Prime Nut Coke (B-13)
+        QUARTZITE_MT:
+        - Quartzite
+        SINTER_SP_02_MT:
+        - Online+Offline Sinter
+        YARD_NUTCOKE_MT:
+        - Yard Nut Coke (B-3)
+        SLAG_GENERATION_MT:
+        - Slag Generation (Calculated)
+        NMDC_ROM_MT:
+        - NMDC ROM
+        Acore MN Ore_MT:
+        - Acore MN Ore
+        GOMTI_MT:
+        - Gomati
+        TOTAL_COKE_MT:
+        - Total Coke
+        TOTAL_HOT_METAL_MT:
+        - Total Hot Metal Production
+      rows:
+        Coke Online - EML: 282
+        Coke Offline - EML: 0
+        Dolomite: 251
+        Geomine industries: 128
+        JRS VENTURES: 0
+        Lloyds metal energy: 177
+        Llyods fines oversize(+10mm): 0
+        Lloyds fines oversize: 114
+        Total Pellet: 107
+        NMDC DONIMALAI: 163
+        Online+Offline Sinter: 30
+        PCI Coal: 29
+        Prime Nut Coke (B-13): 27
+        Quartzite: 252
+        Total purchase coke: 286
+        Yard Nut Coke (B-3): 28
+        Slag Generation (Calculated): 15
+        NMDC ROM: 0
+        Acore MN Ore: 0
+        Gomati: 184
+        Total Hot Metal Production: 7
+dpr_fields:
+  Date: date
+  COKE_OFFLINE_MT: coke_offline_mt
+  COKE_ONLINE_MT: coke_online_mt
+  TOtAL_PURCHASE_COKE_MT: total_purchase_coke_mt
+  DOLOMITE_MT: dolomite_mt
+  TOTAL_COKE_MT: total_coke_mt
+  YARD_NUTCOKE_MT: yard_nutcoke_mt
+  PRIME_NUT_COKE_MT: prime_nut_coke_mt
+  GEOMIN_MT: geomin_mt
+  JRSVENTURES_MT: jrsventures_mt
+  LLOYDS_FINES_MT: lloyds_fines_mt
+  LLOYDS_MT: lloyds_mt
+  TOTAL_PELLET_MT: total_pellet_mt
+  NMDC_MT: nmdc_mt
+  NMDC_ROM_MT: nmdc_rom_mt
+  PCI_MT: pci_mt
+  QUARTZITE_MT: quartzite_mt
+  SINTER_SP_02_MT: sinter_sp_02_mt
+  Acore MN Ore_MT: acore_mn_ore_mt
+  GOMTI_MT: gomti_mt
+  TOTAL_HOT_METAL_MT: total_hot_metal_mt
+  SLAG_GENERATION_MT: slag_generation_mt

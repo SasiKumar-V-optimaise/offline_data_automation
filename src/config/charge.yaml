@@ -1,0 +1,146 @@
+rename_dict:
+  online_mt: coke_on_mt
+  eml_mts_mt: nutcoke_mt
+  jrs_ventures_mt: jrsventures_mt
+  sinter_mt: sinter_mt
+  bacheli_oversize_clo_mt: bachelli_clo_mt
+  lloyds_clo_mt: llyods_mt
+  geomin_clo_mt: geomin_mt
+  quartz_mt: quartz_mt
+  coke_offline_mt: coke_off_mt
+  nut_coke_mt: nut_coke_mt
+  lloyds_pellet_mt: pellet_mt
+  lime_stone_mt: limestone_mt
+  dolomite_mt: dolomite_mt
+  mn_ore_mt: manganese_mt
+  gomti_mt: gomti_mt
+aggregates:
+  coke_total_mt:
+  - online_mt
+  - imr_mt
+  - eml_mt
+  flux_mt:
+  - quartz_mt
+  - dolomite_mt
+  - lime_stone_mt
+  ore_mt:
+  - nmdc_mt
+  - nmdc_rom_mt
+  - jrsventures_mt
+  - jrs_ventures_mt
+  - lloyds_mt
+  - geomine_mt
+  total_nutcoke_mt:
+  - nut_coke_mt
+  - eml_mts_mt
+last_updated: '2026-03-24 06:13:30'
+target_day:
+  date: '2026-03-24'
+  file: CHARGE_AND_DUMP_REPORT_24_3_2026.xlsx
+  hopper_to_material_raw:
+    HOPPER_1_ACT: ONLINE
+    HOPPER_2_ACT: SINTER
+    HOPPER_3_ACT: DONI O\F
+    HOPPER_4_ACT: LLOYDS
+    HOPPER_5_ACT: GEOMINE
+    HOPPER_6_ACT: SINTER
+    HOPPER_7_ACT: QUARTZ
+    HOPPER_8_ACT: SINTER
+    HOPPER_9_ACT: TITANIF
+    HOPPER_10_ACT: ONLINE
+    HOPPER_11_ACT: SINTER
+    HOPPER_12_ACT: EML
+    HOPPER_13_ACT: LL PELLET
+    HOPPER_14_ACT: ONLINE
+    HOPPER_15_ACT: SINTER
+    HOPPER_16_ACT: LIME STONE
+    HOPPER_17_ACT: SINTER
+    HOPPER_18_ACT: DOLOMITE
+    HOPPER_19_ACT: Nut Coke
+  material_to_hoppers:
+    online_mt:
+    - HOPPER_10_ACT
+    - HOPPER_14_ACT
+    - HOPPER_1_ACT
+    sinter_mt:
+    - HOPPER_11_ACT
+    - HOPPER_15_ACT
+    - HOPPER_17_ACT
+    - HOPPER_2_ACT
+    - HOPPER_6_ACT
+    - HOPPER_8_ACT
+    doni_of_mt:
+    - HOPPER_3_ACT
+    lloyds_mt:
+    - HOPPER_4_ACT
+    geomine_mt:
+    - HOPPER_5_ACT
+    quartz_mt:
+    - HOPPER_7_ACT
+    titanif_mt:
+    - HOPPER_9_ACT
+    eml_mt:
+    - HOPPER_12_ACT
+    ll_pellet_mt:
+    - HOPPER_13_ACT
+    lime_stone_mt:
+    - HOPPER_16_ACT
+    dolomite_mt:
+    - HOPPER_18_ACT
+    nut_coke_mt:
+    - HOPPER_19_ACT
+previous_day:
+  date: '2026-03-23'
+  file: CHARGE_AND_DUMP_REPORT_23_3_2026.xlsx
+  hopper_to_material_raw:
+    HOPPER_1_ACT: ONLINE
+    HOPPER_2_ACT: SINTER
+    HOPPER_3_ACT: DONI O\F
+    HOPPER_4_ACT: LLOYDS
+    HOPPER_5_ACT: GEOMINE
+    HOPPER_6_ACT: SINTER
+    HOPPER_7_ACT: QUARTZ
+    HOPPER_8_ACT: SINTER
+    HOPPER_9_ACT: TITANIF
+    HOPPER_10_ACT: ONLINE
+    HOPPER_11_ACT: SINTER
+    HOPPER_12_ACT: EML
+    HOPPER_13_ACT: LL PELLET
+    HOPPER_14_ACT: ONLINE
+    HOPPER_15_ACT: SINTER
+    HOPPER_16_ACT: LIME STONE
+    HOPPER_17_ACT: SINTER
+    HOPPER_18_ACT: DOLOMITE
+    HOPPER_19_ACT: Nut Coke
+  material_to_hoppers:
+    online_mt:
+    - HOPPER_10_ACT
+    - HOPPER_14_ACT
+    - HOPPER_1_ACT
+    sinter_mt:
+    - HOPPER_11_ACT
+    - HOPPER_15_ACT
+    - HOPPER_17_ACT
+    - HOPPER_2_ACT
+    - HOPPER_6_ACT
+    - HOPPER_8_ACT
+    doni_of_mt:
+    - HOPPER_3_ACT
+    lloyds_mt:
+    - HOPPER_4_ACT
+    geomine_mt:
+    - HOPPER_5_ACT
+    quartz_mt:
+    - HOPPER_7_ACT
+    titanif_mt:
+    - HOPPER_9_ACT
+    eml_mt:
+    - HOPPER_12_ACT
+    ll_pellet_mt:
+    - HOPPER_13_ACT
+    lime_stone_mt:
+    - HOPPER_16_ACT
+    dolomite_mt:
+    - HOPPER_18_ACT
+    nut_coke_mt:
+    - HOPPER_19_ACT

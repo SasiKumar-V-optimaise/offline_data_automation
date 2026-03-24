@@ -1,0 +1,29 @@
+download:
+  download_dir: "~/Downloads"
+  metadata_path: "downloaded_metadata.json"   # keep same filename (easy migration)
+  default_timeout: 180
+
+eml:
+  login_url: "https://ithelpdesk-ugml.sg4.quickconnect.to/"
+  file_station_url: "https://ithelpdesk-ugml.sg4.quickconnect.to/?launchApp=SYNO.SDS.App.FileStation3.Instance&SynoToken=laNlkmozfCC0g"
+  hourly_url: "https://ithelpdesk-ugml.sg4.quickconnect.to/index.cgi?launchApp=SYNO.SDS.App.FileStation3.Instance&launchParam=openfile%3D%252FV-Optimaise%2520Data%252FBF2%2520AUTO%2520REPORTS%252FCHARGE%2520AND%2520DUMP%252FHOURLY%252F"
+
+# This maps your CLI modes -> the visible file names inside portal.
+# Matches your existing mode_map. :contentReference[oaicite:4]{index=4}
+portal_files:
+  rm: "11A BF-02 BUNKER"
+  dpr: "BF-02 DPR"
+  hot_metal: "06 BF-02- HOT METAL, SLAG & GAS"
+  rm_hm: "RM & HM"
+  rm_stock: "RM BULK STOCK"   
+
+
+influxdb:
+  url: https://eu-central-1-1.aws.cloud2.influxdata.com
+  org: Blast Furnace, Evonith
+  bucket: "Test"
+  online_bucket: "bf2_evonith_raw"
+  token: ${INFLUX_TOKEN}       
+  online_token: ${INFLUX_ONLINE_TOKEN}
+  timestamp_col: date
+
