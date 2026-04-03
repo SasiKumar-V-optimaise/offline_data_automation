@@ -171,10 +171,6 @@ class PortalDownloader:
             self.logger.error("File list not loaded (timeout)")
             return "failed"
 
-        for r in rows[:30]:
-            if r["name"].strip():
-                self.logger.info(f"Seen file: {r['name']}")
-
         target = self._find_latest_matching_file(rows, keywords)
 
         if not target:

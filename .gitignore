@@ -5,3 +5,5 @@ output/
 outputs/
 
 downloaded_metadata.json
+__pycache__/
+*.pyc
