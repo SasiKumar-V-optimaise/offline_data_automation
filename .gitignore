@@ -1,3 +1,7 @@
 src/config/secrets.yaml
 .env
 logs/
+output/
+outputs/
+
+downloaded_metadata.json

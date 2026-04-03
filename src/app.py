@@ -182,7 +182,7 @@ def main():
     # -------------------------------------------------
     if "rm" in modes:
         rm_files = sorted(
-            download_dir.glob("11A BF-02 BUNKER*.xlsx"),
+            download_dir.glob("*BUNKER*.xlsx"),
             key=lambda p: p.stat().st_mtime,
             reverse=True,
         )
@@ -252,75 +252,6 @@ def main():
     # -------------------------------------------------
     # CHARGE
     # -------------------------------------------------
-    # if "charge" in modes:
-    #     charge_files = sorted(
-    #         download_dir.glob("CHARGE_AND_DUMP_REPORT_*.xlsx"),
-    #         key=lambda p: p.stat().st_mtime,
-    #         reverse=True,
-    #     )
-
-    #     if not charge_files:
-    #         logger.warning("No CHARGE files found after download.")
-    #     else:
-    #         charge_yaml_path = Path("src/config/charge.yaml")
-
-    #         # Load rename_dict + aggregates from charge.yaml
-    #         charge_user_cfg = _load_charge_user_cfg(charge_yaml_path)
-
-    #         charge_service = ChargeService(
-    #             ChargeServiceConfig(
-    #                 charge_yaml_path=str(charge_yaml_path),
-    #                 aggregates=charge_user_cfg.get("aggregates", {}),
-    #                 rename_dict=charge_user_cfg.get("rename_dict", {}),
-    #                 influx_cfg=cfg.get("influxdb", {}),
-    #             )
-    #         )
-
-    #         def find_file_for_date(dt: datetime):
-    #             pattern = f"CHARGE_AND_DUMP_REPORT_{dt.day}_{dt.month}_{dt.year}"
-    #             for f in charge_files:
-    #                 if pattern in f.name:
-    #                     return f
-    #             return None
-
-    #         out_dir = Path("output")
-    #         out_dir.mkdir(parents=True, exist_ok=True)
-
-    #         for run_date in run_dates:
-    #             run_dt = datetime.strptime(run_date, "%d-%b-%Y")
-    #             prev_dt = run_dt - timedelta(days=1)
-
-    #             file_today = find_file_for_date(run_dt)
-    #             file_yesterday = find_file_for_date(prev_dt)
-
-    #             if not file_today:
-    #                 logger.error("Charge file not found for %s", run_date)
-    #                 continue
-
-    #             logger.info(
-    #                 "Processing CHARGE for %s | today=%s | yesterday=%s",
-    #                 run_date,
-    #                 file_today.name,
-    #                 file_yesterday.name if file_yesterday else "None",
-    #             )
-
-    #             df = charge_service.run(
-    #                 file_today=str(file_today),
-    #                 file_yesterday=str(file_yesterday) if file_yesterday else None,
-    #                 run_date_str=run_date,
-    #             )
-
-    #             if df is None or df.empty:
-    #                 logger.warning("No charge data produced for %s", run_date)
-    #                 continue
-
-    #             # Excel output (Influx write already done inside ChargeService)
-    #             out_file = out_dir / f"charge_data_{run_date}.xlsx"
-    #             df.rename(columns={"DATETIME": "date"}).to_excel(out_file, index=False)
-
-    #             logger.info("Charge Excel written → %s", out_file)
-
-
 
     if "charge" in modes:
         charge_files = list(download_dir.glob("CHARGE_AND_DUMP_REPORT_*.xls*"))

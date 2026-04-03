@@ -11,7 +11,7 @@ eml:
 # This maps your CLI modes -> the visible file names inside portal.
 # Matches your existing mode_map. :contentReference[oaicite:4]{index=4}
 portal_files:
-  rm: "11A BF-02 BUNKER"
+  rm: "01E BF-02 BUNKER  2026-27.xlsx"
   dpr: "BF-02 DPR"
   hot_metal: "06 BF-02- HOT METAL, SLAG & GAS"
   rm_hm: "RM & HM"
