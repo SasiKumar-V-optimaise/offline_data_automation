@@ -178,7 +178,6 @@ class PortalDownloader:
             return "failed"
 
         metadata = self._load_metadata()
-
         name = self._normalize_name(target["name"])
         modified = target["modified"]
 
@@ -278,10 +277,10 @@ class PortalDownloader:
         skipped = set()
 
         mode_keywords = {
-            "rm": ["bunker"],
-            "dpr": ["dpr"],
-            "hot_metal": ["hot", "metal"],
-            "rm_hm": ["rm", "hm"],
+            "rm": ["bf-02", "bunker"],
+            "dpr": ["bf-02", "dpr"],
+            "hot_metal": ["bf-02", "hot", "metal"],
+            "rm_hm": ["rm", "hm"],  # keep as is (no bf filter needed)
             "rm_stock": ["bulk", "stock"],
         }
 
