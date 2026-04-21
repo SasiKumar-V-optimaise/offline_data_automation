@@ -7,3 +7,20 @@ outputs/
 downloaded_metadata.json
 __pycache__/
 *.pyc
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual env
+venv/
+.venv/
+
+# OS files
+.DS_Store
+
+# Logs / temp
+*.log
+
+# Optional (if runtime file)
+downloaded_metadata.json

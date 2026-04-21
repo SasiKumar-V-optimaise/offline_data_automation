@@ -132,6 +132,17 @@ class RMService:
         # ------------------------------------------------
         # WRITE OUTPUT
         # ------------------------------------------------
+        if rename_map:
+            allowed_columns = list(rename_map.values()) + ["date"]
+
+            # keep only existing columns
+            allowed_columns = [c for c in allowed_columns if c in combined.columns]
+
+            combined = combined[allowed_columns]
+
+            self.logger.info(
+                f"Final RM fields filtered: keeping only {len(allowed_columns)} columns"
+            )
         os.makedirs(OUTPUT_DIR, exist_ok=True)
         out_path = os.path.join(OUTPUT_DIR, "rm_processed_data.xlsx")
         combined.to_excel(out_path, index=False)

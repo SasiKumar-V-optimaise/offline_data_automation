@@ -21,7 +21,7 @@ portal_files:
 influxdb:
   url: https://eu-central-1-1.aws.cloud2.influxdata.com
   org: Blast Furnace, Evonith
-  bucket: "Test"
+  bucket: "bf2_evonith_offline_utc"
   online_bucket: "bf2_evonith_raw"
   token: ${INFLUX_TOKEN}       
   online_token: ${INFLUX_ONLINE_TOKEN}

@@ -44,6 +44,14 @@ dpr_config:
         - Acore MN Ore
         GOMTI_MT:
         - Gomati
+        FLUE_DUST_MT:
+        - Flue Dust (Dust Catcher)
+        GCP_DUST_MT:
+        - GCP Dust (Silo's)
+        STOCK_HOUSE_DUST_MT:
+        - Stock House Dust
+        CAST_HOUSE_DUST_MT:
+        - Cast House Dust
         TOTAL_COKE_MT:
         - Total Coke
         TOTAL_HOT_METAL_MT:
@@ -69,6 +77,10 @@ dpr_config:
         Acore MN Ore: 121
         Gomati: 184
         Total Hot Metal Production: 7
+        Flue Dust (Dust Catcher) : 0
+        GCP Dust (Silo's) : 0
+        Stock House Dust : 0
+        Cast House Dust : 0
     Mar26:
       sheet_name: Mar'26
       date_row: 5
@@ -164,3 +176,8 @@ dpr_fields:
   GOMTI_MT: gomti_mt
   TOTAL_HOT_METAL_MT: total_hot_metal_mt
   SLAG_GENERATION_MT: slag_generation_mt
+  FLUE_DUST_MT: flue_dust_mt
+  GCP_DUST_MT: gcp_dust_mt
+  STOCK_HOUSE_DUST_MT: stock_house_dust_mt
+  CAST_HOUSE_DUST_MT: cast_house_dust_mt
+  

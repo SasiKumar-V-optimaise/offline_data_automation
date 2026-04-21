@@ -7,13 +7,13 @@ rm:
       sheet_name: LAM COKE
 
     DOLOMITE:
-      col_prefix: FLUX_1_
+      col_prefix: DOLOMITE_
       columns: A:L
       header_row: 2
       sheet_name: DOLOMITE
       
     DONIMALAI OVER SIZE RTRN:
-      col_prefix: ORE_12_
+      col_prefix: ORE_4_
       columns: A:R
       header_row: 2
       sheet_name: 'DONIMALAI OVER SIZE RTRN '
@@ -79,7 +79,7 @@ rm:
       sheet_name: PCI ANALYSIS -02
 
     QUARTZ:
-      col_prefix: FLUX_2_
+      col_prefix: QUARTZ_
       columns: A:I
       header_row: 2
       sheet_name: QUARTZ
@@ -91,7 +91,7 @@ rm:
       sheet_name: SINTER
 
     LIMESTONE:
-      col_prefix: FLUX_3_
+      col_prefix: LIMESTONE_
       columns: A:L
       header_row: 2
       sheet_name: LIMESTONE
@@ -127,13 +127,13 @@ rm:
     COKE_%_TMARB_OFF: coke_pct_tmarb_off
     COKE_%ASHDB_OFF: coke_pct_ashdb_off
 
-    FLUX_1_%CAO: flux_1_pct_cao
-    FLUX_1_%MGO: flux_1_pct_mgo
-    FLUX_1_%SIO2: flux_1_pct_sio2
-    FLUX_1_%AL2O3: flux_1_pct_al2o3
-    FLUX_1_%FE2O3: flux_1_pct_fe2o3
-    FLUX_1_%LOI: flux_1_pct_loi
-    FLUX_1_%TM: flux_1_pct_tm
+    DOLOMITE_%CAO: dolomite_pct_cao
+    DOLOMITE_%MGO: dolomite_pct_mgo
+    DOLOMITE_%SIO2: dolomite_pct_sio2
+    DOLOMITE_%AL2O3: dolomite_pct_al2o3
+    DOLOMITE_%FE2O3: dolomite_pct_fe2o3
+    DOLOMITE_%LOI: dolomite_pct_loi
+    DOLOMITE_%TM: dolomite_pct_tm
 
     NUTCOKE_%ASH: nutcoke_pct_ash
     NUTCOKE_%FC: nutcoke_pct_fc
@@ -141,24 +141,24 @@ rm:
     NUTCOKE_%TM: nutcoke_pct_tm
     NUTCOKE_%VM: nutcoke_pct_vm
 
-    FLUX_3_%CAO: flux_3_pct_cao
-    FLUX_3_%MGO: flux_3_pct_mgo
-    FLUX_3_%SIO2: flux_3_pct_sio2
-    FLUX_3_%AL2O3: flux_3_pct_al2o3
-    FLUX_3_%FE2O3: flux_3_pct_fe2o3
-    FLUX_3_%LOI: flux_3_pct_loi
-    FLUX_3_%TM: flux_3_pct_tm
+    QUARTZ_%CAO: quartz_pct_cao
+    QUARTZ_%MGO: quartz_pct_mgo
+    QUARTZ_%SIO2: quartz_pct_sio2
+    QUARTZ_%AL2O3: quartz_pct_al2o3
+    QUARTZ_%FE2O3: quartz_pct_fe2o3
+    QUARTZ_%LOI: quartz_pct_loi
+    QUARTZ_%TM: quartz_pct_tm
 
     PCI_%ASH: pci_pct_ash
     PCI_%FC: pci_pct_fc
     PCI_%MOISTURE: pci_pct_im
     PCI_%VM: pci_pct_vm
 
-    FLUX_2_%AL2O3: flux_2_pct_al2o3
-    FLUX_2_%FE2O3: flux_2_pct_fe2o3
-    FLUX_2_%LOI: flux_2_pct_loi
-    FLUX_2_%SIO2: flux_2_pct_sio2
-    FLUX_2_%TM: flux_2_pct_tm
+    LIMESTONE_%AL2O3: limestone_pct_al2o3
+    LIMESTONE_%FE2O3: limestone_pct_fe2o3
+    LIMESTONE_%LOI: limestone_pct_loi
+    LIMESTONE_%SIO2: limestone_pct_sio2
+    LIMESTONE_%TM: limestone_pct_tm
 
     SINTER_SP_02_%AL2O3: sinter_sp_02_pct_al2o3
     SINTER_SP_02_%CAO: sinter_sp_02_pct_cao
