@@ -133,7 +133,7 @@ rm:
     DOLOMITE_%AL2O3: dolomite_pct_al2o3
     DOLOMITE_%FE2O3: dolomite_pct_fe2o3
     DOLOMITE_%LOI: dolomite_pct_loi
-    DOLOMITE_%TM: dolomite_pct_tm
+    DOLOMITE_T_M%: dolomite_pct_tm
 
     NUTCOKE_%ASH: nutcoke_pct_ash
     NUTCOKE_%FC: nutcoke_pct_fc
