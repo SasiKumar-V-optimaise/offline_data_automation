@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta, time
 import pandas as pd
+import re
 from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string
 
@@ -45,15 +46,40 @@ class HotMetalReader:
         df[date_col] = pd.to_datetime(df[date_col], errors="coerce", dayfirst=True)
         df = df[df[date_col].notna()].copy()
 
+        
+
         def parse_time(v):
             if pd.isna(v):
                 return None
-            v = f"{float(v):.2f}"
-            h, m = map(int, v.split("."))
-            if m >= 60:
-                h += m // 60
-                m %= 60
-            return time(h % 24, m)
+
+            try:
+                v = str(v).strip()
+                v = re.sub(r"\.+$", "", v)
+
+                if "." in v:
+                    parts = v.split(".")
+                    if len(parts) >= 2:
+                        h = int(parts[0])
+                        m = int(parts[1])
+
+                elif ":" in v:
+                    parts = v.split(":")
+                    h = int(parts[0])
+                    m = int(parts[1])
+
+                else:
+                    val = float(v)
+                    h = int(val)
+                    m = int(round((val - h) * 100))
+
+                if m >= 60:
+                    h += m // 60
+                    m = m % 60
+
+                return time(h % 24, m)
+
+            except Exception:
+                return None
 
         if time_col:
             df[time_col] = df[time_col].apply(parse_time)

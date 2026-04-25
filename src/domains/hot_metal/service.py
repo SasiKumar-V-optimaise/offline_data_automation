@@ -2,12 +2,15 @@
 
 import os
 import pandas as pd
-from infrastructure.influx_client import InfluxClient
+from infrastructure.neon_client import NeonClient
 
 from domains.hot_metal.reader import HotMetalReader
 from domains.hot_metal.config_updater import HotMetalConfigUpdater
+import pytz
 
-OUTPUT_DIR = r"C:\dev\offline_data_automation\output"
+ist = pytz.timezone("Asia/Kolkata")
+
+OUTPUT_DIR = "output/hot_metal"
 
 
 class HotMetalService:
@@ -42,6 +45,8 @@ class HotMetalService:
             # Rename fields (DATE -> date happens here safely)
             df = df.rename(columns=field_map)
             df = df.loc[:, ~df.columns.duplicated()]
+            allowed_cols = list(field_map.values())
+            df = df[[col for col in allowed_cols if col in df.columns]]
 
             # 🔥 DO NOT re-parse date — already datetime from reader
             # df["date"] = pd.to_datetime(df["date"])  ❌ REMOVED
@@ -56,20 +61,22 @@ class HotMetalService:
             out_path = os.path.join(OUTPUT_DIR, "combined_hot_data.xlsx")
             df.to_excel(out_path, index=False)
             self.logger.info(f"HOT_METAL output written → {out_path}")
+            df["date"] = pd.to_datetime(df["date"])
+            df["date"] = df["date"].dt.tz_localize(ist)
 
-            # Push to InfluxDB
-            if not influx_cfg:
-                self.logger.warning("Influx config missing — skipping Influx push")
+            neon_cfg = setting_cfg.get("neondb")
+
+            if not neon_cfg:
+                self.logger.warning("Neon config missing — skipping DB insert")
                 continue
 
-            influx = InfluxClient(influx_cfg)
+            neon = NeonClient(neon_cfg)
+
             try:
-                influx.write_dataframe(
+                neon.insert_dataframe(
                     df=df,
-                    measurement="hotmetal_slag_updated_data",
-                    field_mapping=field_map,
-                    tag_keys=["lab_sample_id", "cast_no_ladle_spec"],
+                    table_name="hot_metal_chemistry"
                 )
-                self.logger.info(f"HOT_METAL {run_date} pushed to InfluxDB")
+                self.logger.info(f"HOT_METAL {run_date} inserted into NeonDB")
             finally:
-                influx.close()
+                neon.close()

@@ -39,7 +39,7 @@ dpr_config:
         SLAG_GENERATION_MT:
         - Slag Generation (Calculated)
         NMDC_ROM_MT:
-        - NMDC ROM
+        - ROM
         Acore MN Ore_MT:
         - Acore MN Ore
         GOMTI_MT:
@@ -65,7 +65,7 @@ dpr_config:
         Total purchase coke: 286
         Yard Nut Coke (B-3): 28
         Slag Generation (Calculated): 15
-        NMDC ROM: 0
+        ROM: 0
         Acore MN Ore: 121
         Gomati: 184
         Total Hot Metal Production: 7

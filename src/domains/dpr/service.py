@@ -11,7 +11,7 @@ import pandas as pd
 
 from domains.dpr.reader import DPRReader
 from domains.dpr.config_updater import DPRConfigUpdater
-from infrastructure.influx_client import InfluxClient
+from infrastructure.neon_client import NeonClient
 
 
 OUTPUT_DIR = r"C:\dev\offline_data_automation\output"
@@ -58,9 +58,19 @@ class DPRService:
             # rename fields BEFORE writing/pushing
             if field_mapping:
                 df = df.rename(columns=field_mapping)
-
+            if df.columns.duplicated().any():
+                self.logger.warning("Duplicate columns found → removing duplicates")
+                df = df.loc[:, ~df.columns.duplicated()]
+            required_cols = list(field_mapping.values())
             if "date" not in df.columns:
                 raise ValueError("Missing 'date' column after renaming DPR fields.")
+            for col in required_cols:
+                if col not in df.columns:
+                    df[col] = None
+                    self.logger.warning(f"Column '{col}' missing → filled with NULL")
+
+            # now safe selection
+            df = df[["date"] + required_cols]
 
             # write excel
             os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -69,18 +79,16 @@ class DPRService:
             self.logger.info(f"DPR output written → {out_path}")
 
             # push to influx
-            if not influx_cfg:
-                self.logger.warning("Influx config missing; skipping Influx push")
-                continue
+            
 
-            influx = InfluxClient(influx_cfg)
+            neon = NeonClient(setting_cfg["neondb"])
+
             try:
-                influx.write_dataframe(
+                neon.insert_dataframe(
                     df=df,
-                    measurement="dpr_data",
-                    field_mapping=field_mapping,
-                    tag_keys=[],
+                    table_name="dpr_data",
+                    conflict_cols=["date"],   # ✅ important
                 )
-                self.logger.info(f"DPR data pushed to InfluxDB for {run_date}")
+                self.logger.info(f"DPR data pushed to NeonDB for {run_date}")
             finally:
-                influx.close()
+                neon.close()

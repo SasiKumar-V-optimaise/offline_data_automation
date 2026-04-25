@@ -8,7 +8,8 @@ from infrastructure.influx_client import InfluxClient
 
 from domains.rm.reader import RMReader
 from domains.rm.transformer import RMTransformer
-
+from infrastructure.neon_client import NeonClient
+from domains.rm.neon_mapper import RMNeonMapper
 OUTPUT_DIR = r"C:\dev\offline_data_automation\output"
 
 
@@ -50,6 +51,13 @@ class RMService:
 
             if df is None or df.empty:
                 self.logger.warning(f"   SKIPPED: {sheet} (no valid data)")
+                continue
+
+            # Filter out rows with invalid markers like 'STOP'
+            df = self.transformer.filter_invalid_markers(df)
+
+            if df is None or df.empty:
+                self.logger.warning(f"   SKIPPED: {sheet} (all rows filtered as invalid)")
                 continue
 
             if "ONLINE/OFFLINE" in df.columns:
@@ -132,6 +140,13 @@ class RMService:
         # ------------------------------------------------
         # WRITE OUTPUT
         # ------------------------------------------------
+        if rename_map:
+            allowed_columns = list(rename_map.values())
+
+            # keep only existing columns
+            allowed_columns = [c for c in allowed_columns if c in combined.columns]
+
+            combined = combined[allowed_columns]
         os.makedirs(OUTPUT_DIR, exist_ok=True)
         out_path = os.path.join(OUTPUT_DIR, "rm_processed_data.xlsx")
         combined.to_excel(out_path, index=False)
@@ -139,28 +154,37 @@ class RMService:
         self.logger.info(f"RM output written → {out_path}")
         self.logger.info("RM processing completed successfully")
         # ------------------------------------------------
-        # PUSH TO INFLUXDB
+        # PUSH TO NEON DB (CORRECT WAY)
         # ------------------------------------------------
-        influx_cfg = setting_cfg.get("influxdb")
+        neon_cfg = setting_cfg.get("neondb")
 
-        if not influx_cfg:
-            self.logger.warning("InfluxDB config missing — skipping Influx push")
-        else:
+        if neon_cfg:
+            self.logger.info("Pushing RM data to Neon DB...")
+
+            neon_client = NeonClient(neon_cfg)
+
             try:
-                influx = InfluxClient(influx_cfg)
+                # 1. Fetch material lookup from DB
+                material_lookup = neon_client.fetch_material_lookup()
 
-                influx.write_dataframe(
-                    df=combined,
-                    measurement="rm_updated_data",
-                    field_mapping=rm_cfg.get("rename_fields", {}),
-                    tag_keys=[],   # add tags later if needed
-                )
+                # 2. Initialize mapper with lookup
+                mapper = RMNeonMapper(material_lookup, logger=self.logger)
 
-                influx.close()
-                self.logger.info("RM data pushed to InfluxDB successfully")
+                # 3. Convert combined DF → per-table DFs
+                table_dfs = mapper.iter_table_dfs(combined)
 
-            except Exception as exc:
-                self.logger.error(f"Failed to push RM data to InfluxDB: {exc}")
+                # 4. Insert each table separately
+                for table_name, df in table_dfs:
+                    try:
+                        rows = neon_client.insert_dataframe(
+                            df=df,
+                            table_name=table_name,
+                            conflict_cols=["material_id", "date_time"],
+                        )
+                        self.logger.info(f"    {table_name}: {rows} rows inserted")
 
+                    except Exception as e:
+                        self.logger.error(f"    Failed for {table_name}: {e}")
 
-        return combined
+            finally:
+                neon_client.close()

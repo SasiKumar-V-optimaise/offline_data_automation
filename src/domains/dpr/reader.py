@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-
+import re
 import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string
@@ -13,15 +13,22 @@ from openpyxl.utils import column_index_from_string
 
 @dataclass
 class DPRReader:
+
+    def _normalize(self, text: str) -> str:
+        if not text:
+            return ""
+        text = str(text).lower()
+        text = re.sub(r"[^a-z0-9]+", " ", text)  # remove symbols
+        return text.strip()
     logger: any
 
-    def _build_reverse_map(self, rename_map: Dict[str, List[str]]) -> Dict[str, str]:
-        # reverse_map: "Coke Online - EML" -> "COKE_ONLINE_MT"
+    def _build_reverse_map(self, rename_map):
         reverse = {}
         for new_col, labels in (rename_map or {}).items():
-            if isinstance(labels, list) and labels:
+            if isinstance(labels, list):
                 for label in labels:
-                    reverse[label] = new_col
+                    norm = self._normalize(label)
+                    reverse[norm] = new_col
         return reverse
 
     def read_for_date(self, file_path, dpr_cfg, run_date):
@@ -101,7 +108,37 @@ class DPRReader:
 
             for label, values in raw_data.items():
                 vals = [values[i] for i, keep in enumerate(non_empty_mask) if keep]
-                col = reverse_map.get(label, label)
+
+                norm_label = self._normalize(label)
+
+                matched_col = None
+
+                # 1. Exact normalized match
+                if norm_label in reverse_map:
+                    matched_col = reverse_map[norm_label]
+                else:
+                    # 2. Partial match (VERY IMPORTANT)
+                    label_tokens = set(norm_label.split())
+
+                    best_match = None
+                    best_score = 0
+
+                    for key in reverse_map:
+                        key_tokens = set(key.split())
+
+                        # intersection score
+                        common = label_tokens & key_tokens
+                        score = len(common)
+
+                        if score > best_score:
+                            best_score = score
+                            best_match = reverse_map[key]
+
+                    # require at least 1 common word
+                    if best_score > 0:
+                        matched_col = best_match
+
+                col = matched_col if matched_col else label
                 df[col] = vals
 
             df = df[df["Date"] == run_dt].reset_index(drop=True)
