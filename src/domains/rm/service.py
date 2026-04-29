@@ -96,6 +96,8 @@ class RMService:
         if rename_map:
             combined = combined.rename(columns=rename_map)
             self.logger.info("RM fields renamed using rm.yaml mapping")
+        
+        combined.to_excel(os.path.join(OUTPUT_DIR, "rm_combined_raw.xlsx"), index=False)  # Debug output
 
         # ------------------------------------------------
         # FIX SHIFT ORDER (C → A → B)
@@ -133,7 +135,7 @@ class RMService:
         # WRITE OUTPUT
         # ------------------------------------------------
         if rename_map:
-            allowed_columns = list(rename_map.values()) + ["date"]
+            allowed_columns = list(rename_map.values())
 
             # keep only existing columns
             allowed_columns = [c for c in allowed_columns if c in combined.columns]

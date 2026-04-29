@@ -32,30 +32,47 @@ class SeleniumClient:
         self.wait = None
 
     def start(self) -> None:
+        import tempfile
+
         chrome_options = Options()
 
-        # Common options
+        # -----------------------------
+        # COMMON (Works everywhere)
+        # -----------------------------
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         chrome_options.add_experimental_option("useAutomationExtension", False)
 
-        # Detect environment (Pi / server)
+        # 🔥 CRITICAL FIX (avoid session conflict)
+        chrome_options.add_argument(f"--user-data-dir={tempfile.mkdtemp()}")
+
+        # -----------------------------
+        # ENV DETECTION
+        # -----------------------------
         chromium_path = which("chromium-browser")
         chromedriver_path = which("chromedriver")
 
         if chromium_path and chromedriver_path:
-            #  Raspberry Pi / Linux server
+            # ✅ Raspberry Pi / Linux
             chrome_options.binary_location = chromium_path
             chrome_options.add_argument("--headless=new")
 
             service = Service(chromedriver_path)
 
         else:
-            #  Laptop / fallback
+            # ✅ Windows / Laptop
             from webdriver_manager.chrome import ChromeDriverManager
+
+            # optional: comment if you want UI
+            # chrome_options.add_argument("--headless=new")
+
             service = Service(ChromeDriverManager().install())
 
+        # -----------------------------
+        # DRIVER START
+        # -----------------------------
         self.driver = webdriver.Chrome(service=service, options=chrome_options)
         self.wait = WebDriverWait(self.driver, self.config.default_timeout)
 
