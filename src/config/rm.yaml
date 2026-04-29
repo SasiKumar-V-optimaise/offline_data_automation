@@ -1,6 +1,6 @@
 rm:
   output:
-    dir: C:\dev\offline_data_automation\output
+    dir: output/rm
     filename: rm_processed_data.xlsx
 
   run_date_format: "%d-%b-%Y"

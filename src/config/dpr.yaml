@@ -2,7 +2,7 @@ dpr:
   run_date_format: "%d-%b-%Y"
 
   output:
-    dir: C:\dev\offline_data_automation\output
+    dir: output/dpr
     filename: combined_dpr_data.xlsx
 
   neon:
