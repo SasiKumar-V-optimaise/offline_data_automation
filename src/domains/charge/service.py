@@ -1,198 +1,104 @@
 # src/domains/charge/service.py
 import os
-import logging
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional
-from dataclasses import dataclass, field
-
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
 import pandas as pd
-from influxdb_client import InfluxDBClient
 
 from .reader import ChargeExcelReader
-from .processor import ChargeProcessor, ChargeProcessConfig
-from .config_updater import ChargeConfigUpdater
-from infrastructure.influx_client import InfluxClient
+from .processor import RawChargeProcessor
+from .snapshot_repository import HopperSnapshotRepository
+import yaml
+from infrastructure.neon_client import NeonClient
 
 
-logger = logging.getLogger(__name__)
 
 
 @dataclass
 class ChargeServiceConfig:
-    charge_yaml_path: str
-    aggregates: Dict[str, List[str]] = field(default_factory=dict)
-    rename_dict: Dict[str, str] = field(default_factory=dict)
-    influx_cfg: dict = field(default_factory=dict)
+    output_dir: str
+    neon_dev_cfg: dict   # snapshot DB
+    neondb_cfg: dict     # charge_data DB
+    charge_yaml_path: str = "src/config/charge.yaml"
+    write_to_neon: bool = False
 
 
 class ChargeService:
-    def __init__(self, cfg: ChargeServiceConfig):
+    def __init__(self, cfg: ChargeServiceConfig, logger):
         self.cfg = cfg
-
-        # ✅ no materials.yaml / no aliasing
+        self.logger = logger
         self.reader = ChargeExcelReader()
+        self.processor = RawChargeProcessor()
+        self.snapshot_repo = HopperSnapshotRepository(cfg.neon_dev_cfg)
 
-        self.processor = ChargeProcessor(
-            ChargeProcessConfig(
-                aggregates=cfg.aggregates,
-                rename_dict=cfg.rename_dict,
-            )
+    def run(self, charge_file: str, run_date_str: str) -> pd.DataFrame:
+        target_date = datetime.strptime(run_date_str, "%d-%b-%Y")
+
+        self.logger.info(f"Reading raw charge data for {run_date_str}")
+
+        raw_df = self.reader.read_target_day_raw(
+            file_path=charge_file,
+            target_date=target_date,
         )
 
-        self.config_updater = ChargeConfigUpdater(charge_yaml_path=cfg.charge_yaml_path)
+        self.logger.info(f"Raw rows found: {len(raw_df)}")
 
-    # def run(self, file_today: str, file_yesterday: Optional[str], run_date_str: str) -> pd.DataFrame:
-    #     target_date = datetime.strptime(run_date_str, "%d-%b-%Y")
-    #     file_paths = [p for p in (file_yesterday, file_today) if p]
+        snapshots = self.snapshot_repo.fetch_for_day(target_date)
+        self.logger.info(f"Snapshots loaded: {len(snapshots)}")
+        self.logger.info(f"First snapshot: {snapshots[0]['ts']}")
+        self.logger.info(f"Last snapshot: {snapshots[-1]['ts']}")
 
-    #     frames: List[pd.DataFrame] = []
-    #     mappings: List[Dict[str, List[str]]] = []
-    #     yaml_updates: List[Dict] = []
+        final_df = self.processor.process_wide_with_time(
+            raw_df=raw_df,
+            snapshots=snapshots
+        )
+        Path(self.cfg.output_dir).mkdir(parents=True, exist_ok=True)
 
-    #     for path in file_paths:
-    #         parsed = self.reader.read(path)
-    #         frames.append(parsed.df)
-    #         mappings.append(parsed.material_to_hoppers)
-    #         yaml_updates.append({
-    #             "file": os.path.basename(path),
-    #             "hopper_to_material_raw": parsed.hopper_to_material_raw,
-    #             "material_to_hoppers": parsed.material_to_hoppers,
-    #         })
+        out_path = Path(self.cfg.output_dir) / f"raw_charge_data_{target_date:%Y_%m_%d}.xlsx"
+        final_df.to_excel(out_path, index=False)
 
-    #     if yaml_updates:
-    #         self.config_updater.update_target_and_previous(
-    #             target_date=target_date.date(),
-    #             target_mapping=yaml_updates[-1],
-    #             previous_mapping=yaml_updates[0] if len(yaml_updates) > 1 else None,
-    #         )
+        self.logger.info(f"Raw charge Excel written: {out_path}")
 
-    #     agg = self.processor.process_files(frames, mappings, target_date)
-    #     if agg.empty:
-    #         return agg
+        # ------------------------------
+        # LOAD CHARGE YAML MAPPING
+        # ------------------------------
+        with open(self.cfg.charge_yaml_path, "r", encoding="utf-8") as f:
+            charge_cfg = yaml.safe_load(f) or {}
 
-    #     pci_df = self._fetch_pci_mt(target_date)
-    #     if not pci_df.empty:
-    #         agg = agg.merge(pci_df, on="DATETIME", how="left")
-    #     else:
-    #         agg["pci_mt"] = 0.0
+        material_column_map = charge_cfg.get("material_column_map", {})
 
-    #     cols = ["DATETIME"] + [c for c in agg.columns if c not in ("DATETIME", "pci_mt")] + ["pci_mt"]
-    #     return agg[cols]
+        # ------------------------------
+        # CONVERT TO DB FORMAT
+        # ------------------------------
+        db_df = self.processor.to_charge_data_table(
+            wide_df=final_df,
+            material_column_map=material_column_map,
+        )
+
+        db_out_path = Path(self.cfg.output_dir) / f"charge_data_table_{target_date:%Y_%m_%d}.xlsx"
+        db_df.to_excel(db_out_path, index=False)
+
+        self.logger.info(f"Charge DB-format Excel written: {db_out_path}")
 
 
-    def run(self, file_today: str, file_yesterday: Optional[str], run_date_str: str) -> pd.DataFrame:
-        target_date = datetime.strptime(run_date_str, "%d-%b-%Y")
-        file_paths = [p for p in (file_yesterday, file_today) if p]
 
-        frames: List[pd.DataFrame] = []
-        mappings: List[Dict[str, List[str]]] = []
-        yaml_updates: List[Dict] = []
+        # ------------------------------
+        # WRITE TO NEON DB
+        # ------------------------------
+        if self.cfg.write_to_neon:
+            client = NeonClient(self.cfg.neondb_cfg)
 
-        for path in file_paths:
-            parsed = self.reader.read(path)
-            frames.append(parsed.df)
-            mappings.append(parsed.material_to_hoppers)
-            yaml_updates.append({
-                "file": os.path.basename(path),
-                "hopper_to_material_raw": parsed.hopper_to_material_raw,
-                "material_to_hoppers": parsed.material_to_hoppers,
-            })
+            try:
+                inserted = client.insert_dataframe(
+                    df=db_df,
+                    table_name="public.charge_data",
+                    conflict_cols=["date_time"],
+                    upsert_mode="on_conflict",
+                )
 
-        if yaml_updates:
-            self.config_updater.update_target_and_previous(
-                target_date=target_date.date(),
-                target_mapping=yaml_updates[-1],
-                previous_mapping=yaml_updates[0] if len(yaml_updates) > 1 else None,
-            )
+                self.logger.info(f"Inserted/updated rows in charge_data: {inserted}")
 
-        agg = self.processor.process_files(frames, mappings, target_date)
-        if agg.empty:
-            logger.warning("Charge aggregation produced no rows")
-            return agg
+            finally:
+                client.close()
 
-        pci_df = self._fetch_pci_mt(target_date)
-        if not pci_df.empty:
-            agg = agg.merge(pci_df, on="DATETIME", how="left")
-        else:
-            agg["pci_mt"] = 0.0
-
-        cols = ["DATETIME"] + [c for c in agg.columns if c not in ("DATETIME", "pci_mt")] + ["pci_mt"]
-        agg = agg[cols]
-
-        # ✅ WRITE TO INFLUX (FIX)
-        influx_df = agg.rename(columns={"DATETIME": "date"})
-        self._write_to_influx(influx_df)
-
-        return agg
-
-    def _fetch_pci_mt(self, target_date: datetime) -> pd.DataFrame:
-        influx_cfg = self.cfg.influx_cfg
-        if not influx_cfg:
-            return pd.DataFrame()
-
-        bucket = influx_cfg["online_bucket"]
-        token = influx_cfg["online_token"]
-
-        start_utc_dt = target_date - timedelta(hours=6, minutes=30)
-        stop_utc_dt = target_date + timedelta(days=1) - timedelta(hours=5, minutes=30)
-
-        start_str = start_utc_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        stop_str = stop_utc_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-        query = f"""
-import "math"
-from(bucket: "{bucket}")
-|> range(start: time(v: "{start_str}"), stop: time(v: "{stop_str}"))
-|> filter(fn: (r) =>
-    r._measurement == "process_params" and
-    (r._field == "coal_rate_actual_value" or r._field == "production_per_hour")
-)
-|> map(fn: (r) => ({{ r with _value: math.abs(x: r._value) }}))
-|> aggregateWindow(every: 1h, fn: mean, createEmpty: false, offset: 30m)
-|> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
-"""
-
-        try:
-            with InfluxDBClient(url=influx_cfg["url"], token=token, org=influx_cfg["org"]) as client:
-                df = client.query_api().query_data_frame(query)
-            if df.empty:
-                return pd.DataFrame()
-
-            df = df.rename(columns={"_time": "DATETIME"})
-            df["DATETIME"] = (
-                pd.to_datetime(df["DATETIME"], utc=True)
-                .dt.tz_convert("Asia/Kolkata")
-                .dt.floor("h")
-                .dt.tz_localize(None)
-            )
-            df["pci_mt"] = (df["coal_rate_actual_value"] * df["production_per_hour"]) / 1000.0
-            df = df[["DATETIME", "pci_mt"]]
-
-            idx = pd.date_range(target_date, target_date + timedelta(days=1), freq="1h", inclusive="left")
-            return df.set_index("DATETIME").reindex(idx).reset_index().rename(columns={"index": "DATETIME"})
-        except Exception:
-            logger.exception("Failed to fetch pci_mt")
-            return pd.DataFrame()
-        
-    def _write_to_influx(self, df: pd.DataFrame):
-        influx_cfg = self.cfg.influx_cfg
-        if not influx_cfg:
-            logger.warning("Influx config missing. Skipping InfluxDB write.")
-            return
-
-        if "date" not in df.columns:
-            raise ValueError("Influx write requires 'date' column")
-
-        client = InfluxClient(influx_cfg)
-
-        try:
-            client.write_dataframe(
-                df=df,
-                measurement="latest_charge_data",
-                field_mapping=None,   # write all numeric fields
-                tag_keys=None,
-            )
-            logger.info("Charge data written to InfluxDB successfully.")
-        finally:
-            client.close()
-
+        return final_df

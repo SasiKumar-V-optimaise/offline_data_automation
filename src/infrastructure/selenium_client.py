@@ -39,8 +39,6 @@ class SeleniumClient:
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         chrome_options.add_experimental_option("useAutomationExtension", False)
-
-        # Detect environment (Pi / server)
         chromium_path = which("chromium-browser")
         chromedriver_path = which("chromedriver")
 

@@ -55,7 +55,7 @@ class DPRConfigUpdater:
         target_sheet = self.select_sheet_for_run_date(wb, run_date)
         ws = wb[target_sheet]
 
-        sheets = dpr_cfg.get("dpr_config", {}).get("sheets", {})
+        sheets = dpr_cfg.get("config", {}).get("sheets", {})
 
         sheet_key = target_sheet.replace("'", "").replace(" ", "")
 
@@ -91,7 +91,7 @@ class DPRConfigUpdater:
         block["rows"] = new_rows
         sheets[sheet_key] = block
 
-        dpr_cfg["dpr_config"]["sheets"] = sheets
+        dpr_cfg["config"]["sheets"] = sheets
 
         self.logger.info(f"DPR config updated in-memory for '{target_sheet}'")
         return dpr_cfg

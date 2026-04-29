@@ -5,11 +5,12 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, Set, List
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 
 logging.basicConfig(level=logging.INFO)
@@ -72,14 +73,13 @@ class PortalDownloader:
             .replace("  ", " ")
             .strip()
         )
+
     def _wait_for_rows(self, timeout=15):
-        """Wait until actual file rows are loaded (not just DOM)"""
         for _ in range(timeout):
             rows = self._get_visible_rows()
             if rows and any(r["name"].strip() for r in rows):
                 return rows
             time.sleep(1)
-
         return []
 
     # -------------------------------------------------
@@ -151,7 +151,6 @@ class PortalDownloader:
 
         time.sleep(2)
 
-        # ensure sorting
         try:
             self.sc.driver.find_element(
                 By.XPATH, "//span[contains(text(),'Modified Date')]"
@@ -159,12 +158,11 @@ class PortalDownloader:
             time.sleep(1)
         except Exception:
             pass
-        # wait for grid container first
+
         self.sc.wait.until(
             EC.presence_of_element_located((By.CLASS_NAME, "x-grid3-body"))
         )
 
-        # then wait for actual rows
         rows = self._wait_for_rows()
 
         if not rows:
@@ -189,7 +187,6 @@ class PortalDownloader:
             self.logger.info(f"SKIPPED (no change): {name}")
             return "skipped"
 
-        # ---------------- DOWNLOAD ----------------
         self.logger.info(f"Downloading: {target['name']}")
 
         start = time.time()
@@ -202,13 +199,11 @@ class PortalDownloader:
             self.logger.error("Download failed")
             return "failed"
 
-        # ---------------- VALIDATE ----------------
         files = os.listdir(os.path.expanduser(self.cfg.download_dir))
         if not any(all(k in f.lower() for k in keywords) for f in files):
             self.logger.error("Downloaded file mismatch")
             return "failed"
 
-        # ---------------- UPDATE METADATA ----------------
         metadata["root"][name] = modified
         self._save_metadata(metadata)
 
@@ -231,44 +226,88 @@ class PortalDownloader:
     # -------------------------------------------------
     # CHARGE
     # -------------------------------------------------
-    def _scroll_and_download_charge(self, url: str, required_files: Set[str]) -> Set[str]:
-        skipped = set()
-
+    def _scroll_and_download_charge(self, url: str, run_dates: list) -> Set[str]:
         self.sc.driver.get(url)
         self.sc.wait.until(
             lambda d: d.execute_script("return document.readyState") == "complete"
         )
+        time.sleep(1)
 
-        panel = self.sc.wait.until(
-            EC.presence_of_element_located((By.CLASS_NAME, "x-grid3-scroller"))
-        )
+        try:
+            panel = self.sc.wait.until(
+                EC.presence_of_element_located((By.CLASS_NAME, "x-grid3-scroller"))
+            )
+        except Exception:
+            self.logger.error("Could not locate scroll panel.")
+            self.sc.stop()
+            return {"charge_and_dump"}
 
-        found = set()
+        candidates = set()
+        stems = []
+        for rd in run_dates:
+            dt = datetime.strptime(rd, "%d-%b-%Y")
+            for stem in (
+                f"CHARGE_AND_DUMP_REPORT_{dt.day}_{dt.month}_{dt.year}",
+            ):
+                candidates |= { stem + ".xlsx"}
+                stems.append(stem)
 
-        for _ in range(30):
-            rows = self._get_visible_rows()
+        self.logger.info(f"Looking for: {', '.join(sorted(candidates))}")
+
+        seen: Set[str] = set()
+        found = False
+        skipped: Set[str] = set()
+
+        for _ in range(60):
+            rows = self.sc.driver.execute_script("""
+                return [...document.querySelectorAll('.x-grid3-body .x-grid3-row')].map(r=>{
+                    const t=[...r.querySelectorAll('.x-grid3-cell-inner')].map(c=>c.innerText.trim());
+                    return {el:r, n:t[0]||'', m:t[3]||''};
+                });
+            """)
 
             for r in rows:
-                name = r["name"]
+                name = r["n"].strip()
+                if not name or name in seen:
+                    continue
+                seen.add(name)
 
-                if name in required_files and name not in found:
-                    self.logger.info(f"Downloading CHARGE: {name}")
-
-                    start = time.time()
-                    self.sc.driver.execute_script(
-                        "arguments[0].scrollIntoView({block:'center'})", r["el"]
+                if not (
+                    name in candidates
+                    or any(
+                        name.startswith(s) and name.lower().endswith((".xlsx"))
+                        for s in stems
                     )
-                    ActionChains(self.sc.driver).double_click(r["el"]).perform()
+                ):
+                    continue
 
-                    if self._wait_for_download(start):
-                        found.add(name)
-                    else:
-                        skipped.add(name)
+                self.logger.info(f"Found charge file: {name}")
+                self.sc.driver.execute_script(
+                    "arguments[0].scrollIntoView({block:'center'})", r["el"]
+                )
+                start = time.time()
+                ActionChains(self.sc.driver).move_to_element(r["el"]).double_click(r["el"]).perform()
 
-            self.sc.driver.execute_script("arguments[0].scrollTop += 1000", panel)
-            time.sleep(0.5)
+                if self._wait_for_download(start):
+                    self.logger.info(f"Downloaded: {name}")
+                    found = True
+                else:
+                    self.logger.error(f"Download failed: {name}")
+                    skipped.add(name)
+                break
 
-        return skipped | (required_files - found)
+            if found or skipped:
+                break
+
+            ActionChains(self.sc.driver).move_to_element(panel).click().send_keys(Keys.PAGE_DOWN).perform()
+            time.sleep(0.6)
+
+        if not found and not skipped:
+            self.logger.warning("Charge file not found after scrolling.")
+            skipped.add("charge_and_dump")
+
+        self.sc.stop()
+        return skipped
 
     # -------------------------------------------------
     # MAIN ENTRY
@@ -280,7 +319,7 @@ class PortalDownloader:
             "rm": ["bf-02", "bunker"],
             "dpr": ["bf-02", "dpr"],
             "hot_metal": ["bf-02", "hot", "metal"],
-            "rm_hm": ["rm", "hm"],  # keep as is (no bf filter needed)
+            "rm_hm": ["rm", "hm"],
             "rm_stock": ["bulk", "stock"],
         }
 
@@ -292,40 +331,23 @@ class PortalDownloader:
             if not keywords:
                 continue
 
-            result = self._safe_download(
-                self.cfg.file_station_url,
-                keywords
-            )
+            result = self._safe_download(self.cfg.file_station_url, keywords)
 
             if result == "failed":
                 skipped.add(m)
-
             elif result == "skipped":
                 self.logger.info(f"{m} skipped (no update)")
 
         # ---------------- CHARGE ----------------
         if "charge" in modes:
-            dates = set()
-
-            if is_today_mode:
-                today = datetime.today()
-                dates |= {today, today - timedelta(days=1)}
-            else:
-                for rd in run_dates:
-                    d = datetime.strptime(rd, "%d-%b-%Y")
-                    dates |= {d, d - timedelta(days=1)}
-
-            required = set()
-            for d in dates:
-                for stem in (
-                    f"CHARGE_AND_DUMP_REPORT_{d.day}_{d.month}_{d.year}",
-                    f"CHARGE_AND_DUMP_REPORT_{d.day:02d}_{d.month:02d}_{d.year}",
-                ):
-                    required |= {stem + ".xls", stem + ".xlsx"}
-
+            charge_dates = (
+                [datetime.today().strftime("%d-%b-%Y")]
+                if is_today_mode
+                else run_dates
+            )
             skipped |= self._scroll_and_download_charge(
                 self.cfg.hourly_url,
-                required
+                charge_dates,
             )
 
         return skipped

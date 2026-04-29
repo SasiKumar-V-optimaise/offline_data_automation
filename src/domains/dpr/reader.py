@@ -2,154 +2,103 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Any, List, Optional
-import re
+from typing import Dict, Any, Optional
+
 import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string
 
+from domains.dpr.config_updater import DPRConfigUpdater
+
 
 @dataclass
 class DPRReader:
-
-    def _normalize(self, text: str) -> str:
-        if not text:
-            return ""
-        text = str(text).lower()
-        text = re.sub(r"[^a-z0-9]+", " ", text)  # remove symbols
-        return text.strip()
     logger: any
 
-    def _build_reverse_map(self, rename_map):
+    def _normalize(self, text: str) -> str:
+        return re.sub(r"[^a-z0-9]+", " ", str(text).lower()).strip() if text else ""
+
+    def _build_reverse_map(self, rename_map) -> dict:
         reverse = {}
         for new_col, labels in (rename_map or {}).items():
             if isinstance(labels, list):
                 for label in labels:
-                    norm = self._normalize(label)
-                    reverse[norm] = new_col
+                    reverse[self._normalize(label)] = new_col
         return reverse
 
-    def read_for_date(self, file_path, dpr_cfg, run_date):
-
-        sheets = dpr_cfg["dpr_config"]["sheets"]
+    def read_for_date(self, file_path: str, dpr_cfg: Dict[str, Any], run_date: str) -> Optional[pd.DataFrame]:
+        sheets = dpr_cfg["config"]["sheets"]
         run_dt = datetime.strptime(run_date, "%d-%b-%Y").date()
 
         wb = load_workbook(file_path, data_only=True)
-        all_parts = []
-
-        self.logger.info(f"Reading DPR Excel: {file_path}")
-
-        # ✅ get ONLY correct sheet
-        from domains.dpr.config_updater import DPRConfigUpdater
         updater = DPRConfigUpdater(self.logger)
         target_sheet = updater.select_sheet_for_run_date(wb, run_date)
 
-        processed = False
+        self.logger.info(f"Reading DPR Excel: {file_path} / sheet: {target_sheet}")
 
-        for sheet_key, cfg in sheets.items():
-            sheet_name = cfg["sheet_name"]
-
-            # ✅ ONLY process matching sheet
-            if sheet_name != target_sheet:
+        for cfg in sheets.values():
+            if cfg["sheet_name"] != target_sheet:
                 continue
 
-            self.logger.info(f"Processing sheet: {sheet_name}")
+            if target_sheet not in wb.sheetnames:
+                self.logger.warning(f"Sheet '{target_sheet}' not found — skipping")
+                return None
 
-            # ✅ safety check
-            if sheet_name not in wb.sheetnames:
-                self.logger.warning(f"Sheet '{sheet_name}' not found — skipping")
-                continue
-
-            ws = wb[sheet_name]
-
-            # ---- SAME LOGIC (unchanged) ----
-            date_row = int(cfg["date_row"]) - 1
+            ws = wb[target_sheet]
+            date_row = int(cfg["date_row"])
             col_start, col_end = cfg["date_cols"]
 
-            from openpyxl.utils import column_index_from_string
             col_range = range(
                 column_index_from_string(col_start),
                 column_index_from_string(col_end) + 1,
             )
 
-            raw_dates = [ws.cell(row=date_row + 1, column=col).value for col in col_range]
-
-            import pandas as pd
             parsed_dates, valid_cols = [], []
-
-            for i, val in enumerate(raw_dates):
+            for col in col_range:
+                val = ws.cell(row=date_row, column=col).value
                 parsed = pd.to_datetime(val, errors="coerce")
                 if pd.notna(parsed):
                     parsed_dates.append(parsed.date())
-                    valid_cols.append(col_range[i])
+                    valid_cols.append(col)
 
-            raw_data = {}
-            for label, row_idx in cfg["rows"].items():
-                if not row_idx:
-                    continue
-                raw_data[label] = [
-                    ws.cell(row=row_idx, column=col).value for col in valid_cols
-                ]
+            raw_data = {
+                label: [ws.cell(row=row_idx, column=col).value for col in valid_cols]
+                for label, row_idx in cfg["rows"].items()
+                if row_idx
+            }
 
             non_empty_mask = [
-                any(raw_data[label][i] is not None for label in raw_data)
+                any(raw_data[lbl][i] is not None for lbl in raw_data)
                 for i in range(len(valid_cols))
             ]
 
-            filtered_dates = [
-                parsed_dates[i] for i, keep in enumerate(non_empty_mask) if keep
-            ]
-
+            filtered_dates = [d for d, keep in zip(parsed_dates, non_empty_mask) if keep]
             df = pd.DataFrame({"Date": filtered_dates})
 
             reverse_map = self._build_reverse_map(cfg.get("rename_map", {}))
 
             for label, values in raw_data.items():
-                vals = [values[i] for i, keep in enumerate(non_empty_mask) if keep]
+                vals = [v for v, keep in zip(values, non_empty_mask) if keep]
+                norm = self._normalize(label)
 
-                norm_label = self._normalize(label)
-
-                matched_col = None
-
-                # 1. Exact normalized match
-                if norm_label in reverse_map:
-                    matched_col = reverse_map[norm_label]
+                if norm in reverse_map:
+                    col = reverse_map[norm]
                 else:
-                    # 2. Partial match (VERY IMPORTANT)
-                    label_tokens = set(norm_label.split())
-
-                    best_match = None
-                    best_score = 0
-
-                    for key in reverse_map:
-                        key_tokens = set(key.split())
-
-                        # intersection score
-                        common = label_tokens & key_tokens
-                        score = len(common)
-
+                    label_tokens = set(norm.split())
+                    best_col, best_score = label, 0
+                    for key, mapped in reverse_map.items():
+                        score = len(label_tokens & set(key.split()))
                         if score > best_score:
-                            best_score = score
-                            best_match = reverse_map[key]
+                            best_score, best_col = score, mapped
+                    col = best_col if best_score > 0 else label
 
-                    # require at least 1 common word
-                    if best_score > 0:
-                        matched_col = best_match
-
-                col = matched_col if matched_col else label
                 df[col] = vals
 
             df = df[df["Date"] == run_dt].reset_index(drop=True)
+            return df if not df.empty else None
 
-            if not df.empty:
-                all_parts.append(df)
-                processed = True
-
-        if not processed:
-            self.logger.warning("No DPR data found")
-            return None
-
-        return pd.concat(all_parts, ignore_index=True)
-
+        self.logger.warning(f"No matching sheet config found for '{target_sheet}'")
+        return None

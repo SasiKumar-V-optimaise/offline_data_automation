@@ -4,20 +4,14 @@ import os
 import pandas as pd
 from datetime import datetime
 from typing import List
-from infrastructure.influx_client import InfluxClient
 
 from domains.rm.reader import RMReader
 from domains.rm.transformer import RMTransformer
 from infrastructure.neon_client import NeonClient
 from domains.rm.neon_mapper import RMNeonMapper
-OUTPUT_DIR = r"C:\dev\offline_data_automation\output"
 
 
 class RMService:
-    # Explicit shift priority (legacy behavior)
-    SHIFT_PRIORITY = {"C": 0, "A": 1, "B": 2}
-    SHIFT_TIME = {"A": "07:00", "B": "15:00", "C": "23:00"}
-
     def __init__(self, logger):
         self.logger = logger
         self.reader = RMReader(logger)
@@ -33,16 +27,25 @@ class RMService:
         rm_cfg = setting_cfg["rm"]
         rename_map = rm_cfg.get("rename_fields", {})
 
-        date_list = [datetime.strptime(d, "%d-%b-%Y").date() for d in run_dates]
+        # ── Config from YAML ────────────────────────────────────────────
+        shifts_cfg = rm_cfg.get("shifts", {})
+        shift_priority = shifts_cfg.get("priority", {"C": 0, "A": 1, "B": 2})
+        shift_time = shifts_cfg.get("time", {"A": "07:00", "B": "15:00", "C": "23:00"})
+        invalid_markers = rm_cfg.get("invalid_markers")
+
+        output_cfg = rm_cfg.get("output", {})
+        output_dir = output_cfg.get("dir", r"C:\dev\offline_data_automation\output")
+        output_filename = output_cfg.get("filename", "rm_processed_data.xlsx")
+
+        run_date_fmt = rm_cfg.get("run_date_format", "%d-%b-%Y")
+        date_list = [datetime.strptime(d, run_date_fmt).date() for d in run_dates]
 
         self.logger.info("RM processing started")
 
         frames = self.reader.read(rm_file, rm_cfg["sheet_config"])
         parts = []
 
-        # ------------------------------------------------
-        # PER-SHEET PROCESSING
-        # ------------------------------------------------
+        # ── Per-sheet processing ────────────────────────────────────────
         for df, prefix, sheet in frames:
             self.logger.info(f"→ {sheet}")
 
@@ -53,8 +56,7 @@ class RMService:
                 self.logger.warning(f"   SKIPPED: {sheet} (no valid data)")
                 continue
 
-            # Filter out rows with invalid markers like 'STOP'
-            df = self.transformer.filter_invalid_markers(df)
+            df = self.transformer.filter_invalid_markers(df, invalid_markers=invalid_markers)
 
             if df is None or df.empty:
                 self.logger.warning(f"   SKIPPED: {sheet} (all rows filtered as invalid)")
@@ -68,15 +70,11 @@ class RMService:
                 if any(counts > 1):
                     df = self.transformer.average_shift_blocks(df)
 
-            # Create MERGE_KEY before prefixing
             df = df.copy()
             df["MERGE_KEY"] = df["DATE"].astype(str) + "_" + df["SHIFT"]
-
-            # Prefix everything except MERGE_KEY
             df = df.rename(
                 columns={c: f"{prefix}{c}" for c in df.columns if c != "MERGE_KEY"}
             )
-
             parts.append(df)
             self.logger.info(f"   OK: {sheet}")
 
@@ -84,107 +82,88 @@ class RMService:
             self.logger.error("No RM data produced — exiting")
             return pd.DataFrame()
 
-        # ------------------------------------------------
-        # ALIGN ALL SHEETS BY MERGE_KEY
-        # ------------------------------------------------
+        # ── Align all sheets by MERGE_KEY ───────────────────────────────
         combined = parts[0]
         for df in parts[1:]:
             combined = combined.merge(
-                df,
-                on="MERGE_KEY",
-                how="outer",
-                suffixes=("", "_dup"),
+                df, on="MERGE_KEY", how="outer", suffixes=("", "_dup"),
             )
-
         combined = combined.loc[:, ~combined.columns.str.endswith("_dup")]
 
-        # ------------------------------------------------
-        # RENAME FIELDS (BEFORE EXCEL WRITE)
-        # ------------------------------------------------
+        # ── Rename fields ────────────────────────────────────────────────
         if rename_map:
             combined = combined.rename(columns=rename_map)
             self.logger.info("RM fields renamed using rm.yaml mapping")
 
-        # ------------------------------------------------
-        # FIX SHIFT ORDER (C → A → B)
-        # ------------------------------------------------
+        combined.to_excel(os.path.join(output_dir, "rm_combined_raw_1.xlsx"), index=False)
+        # ── Fix shift order (C → A → B) ──────────────────────────────────
         combined["SHIFT"] = combined["MERGE_KEY"].str.split("_").str[-1]
-        combined["SHIFT_ORDER"] = combined["SHIFT"].map(self.SHIFT_PRIORITY)
-
+        combined["SHIFT_ORDER"] = combined["SHIFT"].map(shift_priority)
         combined = combined.sort_values("SHIFT_ORDER").reset_index(drop=True)
 
-        # ------------------------------------------------
-        # BUILD FINAL DATETIME (LEGACY LOGIC)
-        # ------------------------------------------------
-        date_col = next(c for c in combined.columns if c.upper().endswith("_DATE"))
+        # ── Build final datetime ─────────────────────────────────────────
+        date_col = next(
+            (c for c in combined.columns if c.upper().endswith("_DATE")), None
+        )
+        if date_col is None:
+            self.logger.error("No *_DATE column found after merge — cannot build datetime")
+            return pd.DataFrame()
 
         combined["Date"] = pd.to_datetime(combined[date_col], errors="coerce")
-
         combined.drop(
             columns=[c for c in combined.columns if c.upper().endswith("_DATE")],
             inplace=True,
-            errors="ignore"
+            errors="ignore",
         )
-
         combined["Date"] = pd.to_datetime(
             combined["Date"].dt.strftime("%Y-%m-%d")
             + " "
-            + combined["SHIFT"].map(self.SHIFT_TIME)
+            + combined["SHIFT"].map(shift_time)
         )
-
-        # C-shift belongs to previous day
+        # C-shift belongs to the previous calendar day
         combined.loc[combined["SHIFT"] == "C", "Date"] -= pd.Timedelta(days=1)
 
         combined.drop(columns=["SHIFT", "SHIFT_ORDER", "MERGE_KEY"], inplace=True)
         combined = combined.rename(columns={"Date": "date"})
-        # ------------------------------------------------
-        # WRITE OUTPUT
-        # ------------------------------------------------
+
+        # ── Write output ─────────────────────────────────────────────────
         if rename_map:
-            allowed_columns = list(rename_map.values())
+            allowed = [c for c in rename_map.values() if c in combined.columns]
+            combined = combined[allowed]
 
-            # keep only existing columns
-            allowed_columns = [c for c in allowed_columns if c in combined.columns]
-
-            combined = combined[allowed_columns]
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
-        out_path = os.path.join(OUTPUT_DIR, "rm_processed_data.xlsx")
+        os.makedirs(output_dir, exist_ok=True)
+        out_path = os.path.join(output_dir, output_filename)
         combined.to_excel(out_path, index=False)
-
         self.logger.info(f"RM output written → {out_path}")
         self.logger.info("RM processing completed successfully")
-        # ------------------------------------------------
-        # PUSH TO NEON DB (CORRECT WAY)
-        # ------------------------------------------------
-        neon_cfg = setting_cfg.get("neondb")
 
+        # ── Push to Neon DB ──────────────────────────────────────────────
+        neon_cfg = setting_cfg.get("neondb")
         if neon_cfg:
             self.logger.info("Pushing RM data to Neon DB...")
-
             neon_client = NeonClient(neon_cfg)
-
             try:
-                # 1. Fetch material lookup from DB
                 material_lookup = neon_client.fetch_material_lookup()
 
-                # 2. Initialize mapper with lookup
-                mapper = RMNeonMapper(material_lookup, logger=self.logger)
+                rm_neon_cfg = rm_cfg.get("neon", {})
+                category_map = rm_neon_cfg.get("category_map", {})
+                conflict_cols = rm_neon_cfg.get("conflict_cols", ["material_id", "date_time"])
 
-                # 3. Convert combined DF → per-table DFs
-                table_dfs = mapper.iter_table_dfs(combined)
+                mapper = RMNeonMapper(
+                    material_lookup, category_map=category_map, logger=self.logger
+                )
 
-                # 4. Insert each table separately
-                for table_name, df in table_dfs:
+                for table_name, df in mapper.iter_table_dfs(combined):
                     try:
                         rows = neon_client.insert_dataframe(
                             df=df,
                             table_name=table_name,
-                            conflict_cols=["material_id", "date_time"],
+                            conflict_cols=conflict_cols,
                         )
                         self.logger.info(f"    {table_name}: {rows} rows inserted")
-
                     except Exception as e:
                         self.logger.error(f"    Failed for {table_name}: {e}")
-
             finally:
                 neon_client.close()
+
+        return combined

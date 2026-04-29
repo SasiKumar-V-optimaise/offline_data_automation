@@ -21,30 +21,23 @@ class RMTransformer:
         df.columns = df.columns.str.strip().str.replace(" ", "_").str.upper()
         return df
 
-    def filter_invalid_markers(self, df):
-        """
-        Remove rows containing invalid markers like 'STOP' in any column.
-        These markers indicate missing analysis data and should not be
-        inserted into the database as they cause type errors.
-        """
+    def filter_invalid_markers(self, df, invalid_markers=None):
+        markers_upper = (
+            {str(m).strip().upper() for m in invalid_markers}
+            if invalid_markers is not None
+            else {m.upper() for m in self.INVALID_MARKERS}
+        )
+
         df = df.copy()
-        mask = pd.Series([False] * len(df), index=df.index)
+        mask = pd.Series(False, index=df.index)
 
         for col in df.columns:
-            if df[col].dtype == object:
-                # Check for invalid markers in string columns
-                mask |= df[col].astype(str).str.strip().isin(self.INVALID_MARKERS)
+            mask |= df[col].astype(str).str.strip().str.upper().isin(markers_upper)
 
-        # Also check for 'STOP' in any column (case-insensitive search)
-        for col in df.columns:
-            col_str = df[col].astype(str).str.strip().str.upper()
-            mask |= col_str.eq("STOP")
-
-        valid_rows = ~mask
         if mask.sum() > 0:
-            self.logger.info(f"  Filtered {mask.sum()} rows with invalid markers (STOP, etc.)")
+            self.logger.info(f"  Filtered {mask.sum()} rows with invalid markers")
 
-        return df[valid_rows]
+        return df[~mask]
 
     def average_numeric_group(self, df, group_cols, skip_cols=None, preserve_order_col="MERGE_KEY"):
         skip_cols = skip_cols or []

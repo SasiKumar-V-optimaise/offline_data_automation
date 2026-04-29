@@ -27,7 +27,7 @@ class HotMetalService:
         for run_date in run_dates:
             self.logger.info(f"Processing HOT_METAL for {run_date}")
 
-            # Update config (sheet selection)
+            # Update config
             hm_cfg = self.updater.update_from_excel(hm_file, hm_cfg, run_date)
 
             # Read data
@@ -37,7 +37,6 @@ class HotMetalService:
                 self.logger.warning(f"No HOT_METAL data for {run_date}")
                 continue
 
-            # 🔥 IMPORTANT FIX:
             # Drop raw DATE column BEFORE renaming to avoid duplicate `date`
             if "DATE" in df.columns:
                 df = df.drop(columns=["DATE"])
@@ -48,8 +47,7 @@ class HotMetalService:
             allowed_cols = list(field_map.values())
             df = df[[col for col in allowed_cols if col in df.columns]]
 
-            # 🔥 DO NOT re-parse date — already datetime from reader
-            # df["date"] = pd.to_datetime(df["date"])  ❌ REMOVED
+            # df["date"] = pd.to_datetime(df["date"])  
 
             # Convert tag columns to string
             for col in ["lab_sample_id", "cast_no_ladle_spec"]:
@@ -63,6 +61,21 @@ class HotMetalService:
             self.logger.info(f"HOT_METAL output written → {out_path}")
             df["date"] = pd.to_datetime(df["date"])
             df["date"] = df["date"].dt.tz_localize(ist)
+            # --- CLEAN NUMERIC COLUMNS ---
+            exclude_cols = ["lab_sample_id", "cast_no_ladle_spec", "date"]
+
+            for col in df.columns:
+                if col in exclude_cols:
+                    continue
+
+                # Replace junk values
+                df[col] = df[col].replace(
+                    ["*", "NA", "na", "--", ""],
+                    None
+                )
+
+                # Convert to numeric safely
+                df[col] = pd.to_numeric(df[col], errors="coerce")
 
             neon_cfg = setting_cfg.get("neondb")
 
@@ -75,7 +88,9 @@ class HotMetalService:
             try:
                 neon.insert_dataframe(
                     df=df,
-                    table_name="hot_metal_chemistry"
+                    table_name="hot_metal_chemistry",
+                    conflict_cols=["lab_sample_id", "date"], 
+                    upsert_mode="on_conflict"
                 )
                 self.logger.info(f"HOT_METAL {run_date} inserted into NeonDB")
             finally:

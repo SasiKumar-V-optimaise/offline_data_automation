@@ -41,6 +41,11 @@ def parse_args():
         type=str,
         help="DD-Mon-YYYY | DD-MM-YYYY | 'DD-MM-YYYY to DD-MM-YYYY'",
     )
+    parser.add_argument(
+        "--skip-download",
+        action="store_true",
+        help="Skip Selenium download step (use existing files)",
+    )
 
     return parser.parse_args()
 
@@ -84,24 +89,6 @@ def parse_run_dates(raw: str | None, today: bool) -> list[str]:
     )
 
 
-def _load_charge_user_cfg(charge_yaml_path: Path) -> dict:
-    """
-    Loads rename_dict + aggregates from src/config/charge.yaml
-    so they persist across runs and are applied in processor.
-
-    Your ChargeConfigUpdater must preserve these keys.
-    """
-    if not charge_yaml_path.exists():
-        return {}
-
-    with open(charge_yaml_path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
-
-    return {
-        "rename_dict": data.get("rename_dict", {}) or {},
-        "aggregates": data.get("aggregates", {}) or {},
-    }
-
 
 # -------------------------------------------------
 # MAIN
@@ -131,51 +118,51 @@ def main():
         f"Run dates resolved: {run_dates[0]} → {run_dates[-1]} "
         f"({len(run_dates)} day(s))"
     )
-
-    # -------------------------------------------------
-    # DOWNLOAD STEP (ONCE)
-    # -------------------------------------------------
-    logger.info("Starting download step")
-
-    selenium = SeleniumClient(
-        SeleniumConfig(default_timeout=int(cfg["download"]["default_timeout"]))
-    )
-
-    downloader = PortalDownloader(
-        selenium,
-        DownloadConfig(
-            download_dir=cfg["download"]["download_dir"],
-            metadata_path=cfg["download"]["metadata_path"],
-            file_station_url=cfg["eml"]["file_station_url"],
-            hourly_url=cfg["eml"]["hourly_url"],
-            portal_files=cfg["portal_files"],
-        ),
-        logger,
-    )
-
-    try:
-        selenium.start()
-        selenium.login(
-            login_url=cfg["eml"]["login_url"],
-            user=cfg["eml"]["user"],
-            password=cfg["eml"]["password"],
-        )
-        # skipped = downloader.download(modes=modes, run_date_str=run_dates[0], is_today_mode=bool(args.today))
-
-
-        skipped = downloader.download(
-            modes=modes,
-            run_dates=run_dates,
-            is_today_mode=bool(args.today),
-        )
-
-
-        logger.info(f"Download completed. Skipped files: {sorted(skipped)}")
-
-    finally:
-        selenium.stop()
-
     download_dir = Path(cfg["download"]["download_dir"]).expanduser()
+
+    # -------------------------------------------------
+    # DOWNLOAD STEP (OPTIONAL)
+    # -------------------------------------------------
+    if args.skip_download:
+        logger.info("⏭️ Skipping download step (using existing files)")
+    else:
+        logger.info("Starting download step")
+
+        selenium = SeleniumClient(
+            SeleniumConfig(default_timeout=int(cfg["download"]["default_timeout"]))
+        )
+
+        downloader = PortalDownloader(
+            selenium,
+            DownloadConfig(
+                download_dir=cfg["download"]["download_dir"],
+                metadata_path=cfg["download"]["metadata_path"],
+                file_station_url=cfg["eml"]["file_station_url"],
+                hourly_url=cfg["eml"]["hourly_url"],
+                portal_files=cfg["portal_files"],
+            ),
+            logger,
+        )
+
+        try:
+            selenium.start()
+            selenium.login(
+                login_url=cfg["eml"]["login_url"],
+                user=cfg["eml"]["user"],
+                password=cfg["eml"]["password"],
+            )
+
+            skipped = downloader.download(
+                modes=modes,
+                run_dates=run_dates,
+                is_today_mode=bool(args.today),
+            )
+
+            logger.info(f"Download completed. Skipped files: {sorted(skipped)}")
+
+        finally:
+            selenium.stop()
+
 
     # -------------------------------------------------
     # RM
@@ -252,75 +239,45 @@ def main():
     # -------------------------------------------------
     # CHARGE
     # -------------------------------------------------
-
     if "charge" in modes:
-        charge_files = list(download_dir.glob("CHARGE_AND_DUMP_REPORT_*.xls*"))
+        charge_files = sorted(
+            download_dir.glob(f"CHARGE_AND_DUMP_REPORT_*.xlsx"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
 
-        if not charge_files:
-            logger.warning("No CHARGE files found after download.")
-            return
-
-        # ---------- build date latest-file map ----------
-        charge_map: dict[datetime.date, Path] = {}
-
-        for f in charge_files:
-            m = re.search(r"CHARGE_AND_DUMP_REPORT_(\d{1,2})_(\d{1,2})_(\d{4})", f.name)
-            if not m:
-                continue
-
-            d = datetime(int(m.group(3)), int(m.group(2)), int(m.group(1))).date()
-
-            prev = charge_map.get(d)
-            if not prev or f.stat().st_mtime > prev.stat().st_mtime:
-                charge_map[d] = f   # keep latest only
-
-        charge_yaml_path = Path("src/config/charge.yaml")
-        charge_user_cfg = _load_charge_user_cfg(charge_yaml_path)
+        neon_cfg = cfg["neon_dev"]
 
         charge_service = ChargeService(
             ChargeServiceConfig(
-                charge_yaml_path=str(charge_yaml_path),
-                aggregates=charge_user_cfg.get("aggregates", {}),
-                rename_dict=charge_user_cfg.get("rename_dict", {}),
-                influx_cfg=cfg.get("influxdb", {}),
-            )
+            output_dir="outputs",
+            neon_dev_cfg=cfg["neon_dev"], 
+            neondb_cfg=cfg["neondb"],  
+            charge_yaml_path="src/config/charge.yaml",
+            write_to_neon=True
+            ),
+            logger,
         )
 
-        out_dir = Path("output")
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-        # ---------- process per run date ----------
         for run_date in run_dates:
-            run_dt = datetime.strptime(run_date, "%d-%b-%Y").date()
-            prev_dt = run_dt - timedelta(days=1)
+            dt = datetime.strptime(run_date, "%d-%b-%Y")
 
-            file_today = charge_map.get(run_dt)
-            file_yesterday = charge_map.get(prev_dt)
+            matching = [
+                p for p in charge_files
+                if f"CHARGE_AND_DUMP_REPORT_{dt.day}_{dt.month}_{dt.year}" in p.name
+            ]
 
-            if not file_today:
-                logger.error("Charge file not found for %s", run_date)
+            if not matching:
+                logger.error(f"Charge file not found for {run_date}")
                 continue
 
-            logger.info(
-                "Processing CHARGE for %s | today=%s | yesterday=%s",
-                run_date,
-                file_today.name,
-                file_yesterday.name if file_yesterday else "None",
-            )
-
-            df = charge_service.run(
-                file_today=str(file_today),
-                file_yesterday=str(file_yesterday) if file_yesterday else None,
+            charge_service.run(
+                charge_file=str(matching[0]),
                 run_date_str=run_date,
             )
 
-            if df is None or df.empty:
-                logger.warning("No charge data produced for %s", run_date)
-                continue
 
-            out_file = out_dir / f"charge_data_{run_date}.xlsx"
-            df.rename(columns={"DATETIME": "date"}).to_excel(out_file, index=False)
-            logger.info("Charge Excel written → %s", out_file)
+
 
     logger.info("Offline data automation completed successfully.")
 

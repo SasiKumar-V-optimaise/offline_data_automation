@@ -3,9 +3,9 @@
 import os
 import pandas as pd
 from datetime import datetime
-from infrastructure.influx_client import InfluxClient
 
-OUTPUT_DIR = r"C:\dev\offline_data_automation\output"
+
+OUTPUT_DIR = "output/rm_hm"
 
 
 class RMHMService:
