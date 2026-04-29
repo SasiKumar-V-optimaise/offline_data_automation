@@ -3,7 +3,7 @@
 import os
 import pandas as pd
 from datetime import datetime
-
+from infrastructure.neon_client import NeonClient
 
 OUTPUT_DIR = "output/rm_hm"
 
@@ -13,8 +13,10 @@ class RMHMService:
     Handles RM & HM combined sheet processing (e.g. SP-02).
     """
 
-    def __init__(self, logger):
+    def __init__(self, logger, neon_cfg: dict | None = None, write_to_neon: bool = False):
         self.logger = logger
+        self.neon_cfg = neon_cfg
+        self.write_to_neon = write_to_neon
 
     def process(
         self,
@@ -25,7 +27,6 @@ class RMHMService:
 
         rm_hm_cfg = setting_cfg.get("rm_hm", {})
         field_map = setting_cfg.get("rm_hm_fields", {})
-        influx_cfg = setting_cfg.get("influxdb")
 
         sheet_name = rm_hm_cfg.get("sheet_name", "SP-02")
 
@@ -67,7 +68,7 @@ class RMHMService:
                 break
 
         if not date_col:
-            self.logger.error(f"'date' column not found in RM & HM sheet. Columns: {list(df.columns)}")
+            self.logger.error(f"'date' column not found. Columns: {list(df.columns)}")
             return None
 
         df = df.rename(columns={date_col: "date"})
@@ -86,11 +87,9 @@ class RMHMService:
                 df[col] = pd.NA
 
         # ----------------------------
-        # FORWARD FILL LOGIC (LEGACY)
+        # FORWARD FILL
         # ----------------------------
-        df[target_cols] = df[target_cols].ffill()
-        df[target_cols] = df[target_cols].infer_objects(copy=False)
-
+        df[target_cols] = df[target_cols].ffill().infer_objects(copy=False)
 
         # ----------------------------
         # FILTER BY RUN DATES
@@ -106,19 +105,38 @@ class RMHMService:
             self.logger.warning("No RM & HM data found for requested dates")
             return None
 
-        # ----------------------------
-        # FORMAT DATE (KEEP DATETIME)
-        # ----------------------------
         filtered["date"] = pd.to_datetime(filtered["date"])
 
         # ----------------------------
-        # RENAME FIELDS (BUSINESS NAMES)
+        # RENAME + SELECT COLUMNS
         # ----------------------------
+        cols_to_keep = []  # ✅ FIX: always initialize
+
         if field_map:
             filtered = filtered.rename(columns=field_map)
 
+            cols_to_keep = list(field_map.values())
+
+        # always include date
+        if "date" in filtered.columns:
+            cols_to_keep.append("date")
+
+        # remove duplicates
+        cols_to_keep = list(set(cols_to_keep))
+
+        # keep only existing columns
+        cols_to_keep = [c for c in cols_to_keep if c in filtered.columns]
+
+        filtered = filtered[cols_to_keep]
+
         # ----------------------------
-        # WRITE EXCEL (OPTIONAL)
+        # REQUIRED FOR NEON (date_time)
+        # ----------------------------
+        if "date" in filtered.columns:
+            filtered = filtered.rename(columns={"date": "date_time"})
+
+        # ----------------------------
+        # WRITE EXCEL
         # ----------------------------
         os.makedirs(OUTPUT_DIR, exist_ok=True)
         out_path = os.path.join(OUTPUT_DIR, "combined_rm_hm_data.xlsx")
@@ -127,22 +145,24 @@ class RMHMService:
         self.logger.info(f"RM & HM output written → {out_path}")
 
         # ----------------------------
-        # PUSH TO INFLUXDB
+        # WRITE TO NEON DB
         # ----------------------------
-        if not influx_cfg:
-            self.logger.warning("Influx config missing — skipping RM & HM Influx push")
-            return filtered
+        if self.write_to_neon and self.neon_cfg:
+            try:
+                client = NeonClient(self.neon_cfg)
 
-        influx = InfluxClient(influx_cfg)
-        try:
-            influx.write_dataframe(
-                df=filtered,
-                measurement="rm_hm_data",
-                field_mapping=field_map,
-                tag_keys=[],  # no tags for RM & HM
-            )
-            self.logger.info("RM & HM data pushed to InfluxDB successfully")
-        finally:
-            influx.close()
+                rows = client.insert_dataframe(
+                    df=filtered,
+                    table_name="rm_hm",
+                    conflict_cols=["date_time"],  # ✅ matches your "one row per day"
+                    upsert_mode="on_conflict"
+                )
+
+                self.logger.info(f"Inserted {rows} rows into rm_hm table")
+
+                client.close()
+
+            except Exception as e:
+                self.logger.error(f"Failed to write RM_HM data to Neon: {e}")
 
         return filtered

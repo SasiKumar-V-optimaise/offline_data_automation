@@ -210,7 +210,11 @@ def main():
             reverse=True,
         )
         if rm_hm_files:
-            RMHMService(logger).process(str(rm_hm_files[0]), cfg, run_dates)
+            RMHMService(
+            logger,
+            neon_cfg=cfg["neondb"],   
+            write_to_neon=True
+        ).process(str(rm_hm_files[0]), cfg, run_dates)
         else:
             logger.warning("No RM & HM file found after download.")
 

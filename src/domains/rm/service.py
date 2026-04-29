@@ -137,6 +137,9 @@ class RMService:
         combined.to_excel(out_path, index=False)
         self.logger.info(f"RM output written → {out_path}")
         self.logger.info("RM processing completed successfully")
+        for col in combined.columns:
+            if col not in ["date_time", "material_id"]:
+                combined[col] = pd.to_numeric(combined[col], errors="coerce")
 
         # ── Push to Neon DB ──────────────────────────────────────────────
         neon_cfg = setting_cfg.get("neondb")
