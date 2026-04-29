@@ -8,7 +8,12 @@ from typing import List
 class RMTransformer:
     VALID_SHIFTS = {"A", "B", "C"}
     # Values that indicate missing/invalid data - should be treated as NULL
-    INVALID_MARKERS = {"STOP", "stop", "Stop", "N/A", "NA", "n/a", "na", "-", ""}
+    INVALID_MARKERS = {
+    "STOP", "stop", "Stop",
+    "N/A", "NA", "n/a", "na",
+    "-", "",
+    "NR", "nr", "Nr","NULL",
+}
 
     def __init__(self, logger):
         self.logger = logger

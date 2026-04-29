@@ -36,6 +36,11 @@ class NeonClient:
             if df["date_time"].dt.tz is None:
                 df["date_time"] = df["date_time"].dt.tz_localize("Asia/Kolkata")
             df["date_time"] = df["date_time"].dt.tz_convert("UTC")
+        
+        # 🔥 ADD THIS BLOCK
+        for col in df.columns:
+            if col not in ["date_time", "material_id"]:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
 
         df = df.where(df.notnull(), None)
 

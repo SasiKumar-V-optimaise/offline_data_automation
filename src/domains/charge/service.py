@@ -7,7 +7,7 @@ import pandas as pd
 
 from .reader import ChargeExcelReader
 from .processor import RawChargeProcessor
-from .snapshot_repository import HopperSnapshotRepository
+from .hopper_repository import HopperSnapshotRepository
 import yaml
 from infrastructure.neon_client import NeonClient
 

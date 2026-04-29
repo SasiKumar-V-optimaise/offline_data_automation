@@ -15,16 +15,16 @@ rm:
   neon:
     conflict_cols: [material_id, date_time]
     category_map:
-      "fuel coke online":      {table: fuel_chemistry,   db_material: COKE ONLINE}
-      "fuel coke offline":     {table: fuel_chemistry,   db_material: COKE OFFLINE}
-      "fuel nut coke online":  {table: fuel_chemistry,   db_material: NUT COKE ONLINE}
-      "fuel nut coke offline": {table: fuel_chemistry,   db_material: NUT COKE OFFLINE}
+      "fuel coke online":      {table: fuel_chemistry,   db_material: COKE 1}
+      "fuel coke offline":     {table: fuel_chemistry,   db_material: COKE 2}
+      "fuel nut coke online":  {table: fuel_chemistry,   db_material: NUT COKE 1}
+      "fuel nut coke offline": {table: fuel_chemistry,   db_material: NUT COKE 2}
       "fuel pci":              {table: fuel_chemistry,   db_material: PCI}
       "flux 1":                {table: flux_chemistry,   db_material: FLUX 1}
       "flux 2":                {table: flux_chemistry,   db_material: FLUX 2}
       "flux 3":                {table: flux_chemistry,   db_material: FLUX 3}
-      "sinter sp 02 online":   {table: sinter_chemistry, db_material: SINTER SP 02 ONLINE}
-      "sinter sp 02 basicity": {table: sinter_chemistry, db_material: SINTER SP 02 ONLINE}
+      "sinter sp 02 online":   {table: sinter_chemistry, db_material: SINTER 3}
+      "sinter sp 02 offline": {table: sinter_chemistry, db_material: SINTER 4}
       "ore 1":                 {table: ore_chemistry,    db_material: ORE 1}
       "ore 2":                 {table: ore_chemistry,    db_material: ORE 2}
       "ore 3":                 {table: ore_chemistry,    db_material: ORE 3}
@@ -112,7 +112,7 @@ rm:
     SINTER_SP_02_%SIO2: sinter sp 02 online sio2
     SINTER_SP_02_%TIO2: sinter sp 02 online tio2
     SINTER_SP_02_%_T._ALKALI: sinter sp 02 online na2o
-    SINTER_SP_02_BASICITY: sinter sp 02 basicity
+    SINTER_SP_02_BASICITY: sinter sp 02 online basicity
     SINTER_SP_02_UNNAMED:_11: sinter sp 02 online k2o
     LLOYDS_PELLET_%AL2O3: ore pellet 1 al2o3
     LLOYDS_PELLET_%CAO: ore pellet 1 cao

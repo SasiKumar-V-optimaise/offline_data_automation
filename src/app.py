@@ -124,7 +124,7 @@ def main():
     # DOWNLOAD STEP (OPTIONAL)
     # -------------------------------------------------
     if args.skip_download:
-        logger.info("⏭️ Skipping download step (using existing files)")
+        logger.info(" Skipping download step (using existing files)")
     else:
         logger.info("Starting download step")
 

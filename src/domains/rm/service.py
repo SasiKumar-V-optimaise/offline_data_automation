@@ -9,7 +9,8 @@ from domains.rm.reader import RMReader
 from domains.rm.transformer import RMTransformer
 from infrastructure.neon_client import NeonClient
 from domains.rm.neon_mapper import RMNeonMapper
-
+# save to output/rm by default
+output_dir = "output/rm"
 
 class RMService:
     def __init__(self, logger):
@@ -34,7 +35,7 @@ class RMService:
         invalid_markers = rm_cfg.get("invalid_markers")
 
         output_cfg = rm_cfg.get("output", {})
-        output_dir = output_cfg.get("dir", r"C:\dev\offline_data_automation\output")
+        output_dir = output_cfg.get("dir", "output/rm")
         output_filename = output_cfg.get("filename", "rm_processed_data.xlsx")
 
         run_date_fmt = rm_cfg.get("run_date_format", "%d-%b-%Y")
