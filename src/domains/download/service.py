@@ -85,18 +85,32 @@ class PortalDownloader:
     # -------------------------------------------------
     # WAIT FOR DOWNLOAD
     # -------------------------------------------------
-    def _wait_for_download(self, started_at: float, timeout: int = 240) -> bool:
+    def _wait_for_download(self, started_at: float, expected_name: str, timeout: int = 240) -> bool:
         end = time.time() + timeout
-        bad_ext = (".crdownload", ".tmp", ".part")
         d = os.path.expanduser(self.cfg.download_dir)
 
         while time.time() < end:
-            for f in os.listdir(d):
-                p = os.path.join(d, f)
-                if os.path.isfile(p) and not f.endswith(bad_ext):
-                    if os.path.getmtime(p) >= started_at:
+            files = os.listdir(d)
+
+            for f in files:
+                # ignore temp files
+                if f.endswith((".crdownload", ".tmp", ".part")):
+                    continue
+
+                # must match expected file
+                if expected_name.lower() in f.lower():
+                    p = os.path.join(d, f)
+
+                    # ensure file is stable (size not changing)
+                    size1 = os.path.getsize(p)
+                    time.sleep(1)
+                    size2 = os.path.getsize(p)
+
+                    if size1 == size2:
                         return True
+
             time.sleep(1)
+
         return False
 
     # -------------------------------------------------
@@ -195,7 +209,7 @@ class PortalDownloader:
         )
         ActionChains(self.sc.driver).double_click(target["el"]).perform()
 
-        if not self._wait_for_download(start):
+        if not self._wait_for_download(start, name):
             self.logger.error("Download failed")
             return "failed"
 
@@ -288,7 +302,7 @@ class PortalDownloader:
                 start = time.time()
                 ActionChains(self.sc.driver).move_to_element(r["el"]).double_click(r["el"]).perform()
 
-                if self._wait_for_download(start):
+                if self._wait_for_download(start, name):
                     self.logger.info(f"Downloaded: {name}")
                     found = True
                 else:
