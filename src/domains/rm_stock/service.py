@@ -4,6 +4,9 @@ import pandas as pd
 from pathlib import Path
 import yaml
 from infrastructure.influx_client import InfluxClient
+from core.logging import get_logger, LogTemplates
+
+logger = get_logger(__name__)
 
 class RMStockService:
     def __init__(self, logger):
@@ -52,12 +55,12 @@ class RMStockService:
         all_results = []
 
         for run_date in run_dates:
-            self.logger.info(f"Processing RM STOCK for {run_date}")
+            logger.info(f"START | mode=rm_stock date={run_date}")
 
             try:
                 df, ts = self.reader.read(file_path, run_date)
             except Exception as e:
-                self.logger.error(f"{run_date} failed: {e}")
+                logger.error(LogTemplates.failed(f"read_error={e}"))
                 continue
 
             # -----------------------------
@@ -69,7 +72,7 @@ class RMStockService:
             df = df[df["material_key"].notna()]
 
             if df.empty:
-                self.logger.warning(f"No mapped data for {run_date}")
+                logger.warning(LogTemplates.skipped(f"no_mapped_data={run_date}"))
                 continue
 
             # -----------------------------
@@ -99,7 +102,7 @@ class RMStockService:
         # FINAL OUTPUT
         # -------------------------------------------------
         if not all_results:
-            self.logger.warning("No RM STOCK data processed")
+            logger.warning(LogTemplates.skipped("no_data_processed"))
             return
 
         final_df = pd.concat(all_results, ignore_index=True)
@@ -107,7 +110,7 @@ class RMStockService:
         output_file = output_dir / "rm_stock_output.xlsx"
         final_df.to_excel(output_file, index=False)
 
-        self.logger.info(f"Excel written → {output_file}")
+        logger.info(f"OUTPUT | file={output_file.name}")
 
         # OPTIONAL: write to Influx
         self._write_to_influx(final_df, cfg)
@@ -119,7 +122,7 @@ class RMStockService:
         influx_cfg = cfg.get("influxdb")
 
         if not influx_cfg:
-            self.logger.warning("No InfluxDB config found. Skipping write.")
+            logger.warning(LogTemplates.skipped("no_influx_config"))
             return
 
         client = InfluxClient(influx_cfg)
@@ -130,10 +133,10 @@ class RMStockService:
                 measurement="rm_stock",
                 tag_keys=[],  # optional (no tag columns in pivot format)
             )
-            self.logger.info("Data successfully written to InfluxDB")
+            logger.info(LogTemplates.db_inserted(len(df)))
 
         except Exception as e:
-            self.logger.error(f"Influx write failed: {e}")
+            logger.error(LogTemplates.failed(f"influx_error={e}"))
 
         finally:
             client.close()

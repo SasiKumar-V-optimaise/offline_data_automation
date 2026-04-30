@@ -47,6 +47,7 @@ def load_config(
     dpr_path: str = "src/config/dpr.yaml",
     hot_metal_path: str = "src/config/hot_metal.yaml",
     rm_hm_path: str = "src/config/rm_hm.yaml",
+    charge_path: str = "src/config/charge.yaml",
 ):
     base = load_yaml(base_path)
     secrets = load_yaml(secrets_path)
@@ -54,6 +55,7 @@ def load_config(
     dpr_file_cfg = load_yaml(dpr_path)
     hm_file_cfg = load_yaml(hot_metal_path)
     rm_hm_file_cfg = load_yaml(rm_hm_path)
+    charge_file_cfg = load_yaml(charge_path)
 
     # Merge base + secret
     merged = _deep_merge(base, secrets)
@@ -80,5 +82,10 @@ def load_config(
     # -----------------------------
     merged["rm_hm"] = rm_hm_file_cfg.get("rm_hm", {})
     merged["rm_hm_fields"] = rm_hm_file_cfg.get("rm_hm_fields", {})
+
+    # -----------------------------
+    # CHARGE CONFIG
+    # -----------------------------
+    merged["charge"] = charge_file_cfg.get("charge", {})    
 
     return _expand_env(merged)

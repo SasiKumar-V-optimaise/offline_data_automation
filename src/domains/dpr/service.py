@@ -12,6 +12,9 @@ import pandas as pd
 from domains.dpr.reader import DPRReader
 from domains.dpr.config_updater import DPRConfigUpdater
 from infrastructure.influx_client import InfluxClient
+from core.logging import get_logger, LogTemplates
+
+logger = get_logger(__name__)
 
 
 OUTPUT_DIR = r"C:\dev\offline_data_automation\output"
@@ -39,20 +42,20 @@ class DPRService:
         config_cache: Dict[Tuple[int, int], Dict[str, Any]] = {}
 
         for run_date in run_dates:
-            self.logger.info(f"Processing DPR for {run_date}")
+            logger.info(f"START | mode=dpr date={run_date}")
             run_dt = datetime.strptime(run_date, "%d-%b-%Y")
             key = (run_dt.month, run_dt.year)
 
             # update rows only once per month
             if key not in config_cache:
-                self.logger.info(f"Updating DPR config for {run_date}")
+                logger.info(f"CONFIG | updating_dpr={run_date}")
                 dpr_cfg = self.updater.update_rows_in_config(dpr_file, dpr_cfg, run_date)
                 config_cache[key] = dpr_cfg
 
             df = self.reader.read_for_date(dpr_file, dpr_cfg, run_date)
 
             if df is None or df.empty:
-                self.logger.warning(f"No DPR data for {run_date}")
+                logger.warning(LogTemplates.skipped(f"no_data={run_date}"))
                 continue
 
             # rename fields BEFORE writing/pushing
@@ -66,11 +69,11 @@ class DPRService:
             os.makedirs(OUTPUT_DIR, exist_ok=True)
             out_path = os.path.join(OUTPUT_DIR, "combined_dpr_data.xlsx")
             df.to_excel(out_path, index=False)
-            self.logger.info(f"DPR output written → {out_path}")
+            logger.info(f"OUTPUT | file={out_path}")
 
             # push to influx
             if not influx_cfg:
-                self.logger.warning("Influx config missing; skipping Influx push")
+                logger.warning(LogTemplates.skipped("no_influx_config"))
                 continue
 
             influx = InfluxClient(influx_cfg)
@@ -81,6 +84,6 @@ class DPRService:
                     field_mapping=field_mapping,
                     tag_keys=[],
                 )
-                self.logger.info(f"DPR data pushed to InfluxDB for {run_date}")
+                logger.info(LogTemplates.db_inserted(len(df)))
             finally:
                 influx.close()

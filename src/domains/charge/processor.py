@@ -1,15 +1,14 @@
-import re
 import pandas as pd
 
 
 class RawChargeProcessor:
     def process_wide_with_time(self, raw_df, snapshots):
         raw_df = raw_df.sort_values("DATETIME")
-
         snapshots = sorted(snapshots, key=lambda x: x["ts"])
 
         out = raw_df.copy()
 
+        # initialize material columns
         for hopper_no in range(1, 20):
             out[f"hopper_{hopper_no}_material"] = None
 
@@ -29,7 +28,6 @@ class RawChargeProcessor:
             for hopper_no in range(1, 20):
                 out.at[i, f"hopper_{hopper_no}_material"] = mapping.get(hopper_no)
 
-        # now attach values
         final = pd.DataFrame()
         final["Date"] = out["DATETIME"]
 
@@ -41,46 +39,45 @@ class RawChargeProcessor:
             mat_col = f"hopper_{hopper_no}_material"
             val_col = f"hopper_{hopper_no}_value"
 
-            # material name
-            final[mat_col] = out[mat_col]
-
-            # numeric value
-            final[val_col] = out[act_col]
+            final[mat_col] = out.get(mat_col)
+            final[val_col] = pd.to_numeric(out.get(act_col), errors="coerce")
 
         return final
-    def to_charge_data_table(self, wide_df: pd.DataFrame, material_column_map: dict) -> pd.DataFrame:
-        table_cols = [
-            "date_time", "charge_no",
-            "ore_1_mt", "ore_2_mt", "ore_3_mt", "ore_4_mt", "ore_5_mt", "ore_6_mt",
-            "ore_7_mt", "ore_8_mt", "ore_9_mt", "ore_10_mt", "ore_11_mt", "ore_12_mt",
-            "flux_1_mt", "flux_2_mt", "flux_3_mt",
-            "coke_2_mt", "coke_1_mt", "nut_coke_1_mt",
-            "pci_mt",
-             "sinter_3_mt",
-            "pellet_1_mt", "pellet_2_mt",
-        ]
 
+    def to_charge_data_table(
+        self,
+        wide_df: pd.DataFrame,
+        material_column_map: dict,
+        table_columns: list,
+    ) -> pd.DataFrame:
+
+        # -------------------------------------------------
+        # INIT OUTPUT
+        # -------------------------------------------------
         out = pd.DataFrame()
-        out["date_time"] = pd.to_datetime(wide_df["Date"])
+        out["date_time"] = pd.to_datetime(wide_df["Date"], errors="coerce")
 
-        # initialize all numeric columns FIRST
-        for col in table_cols:
+        # initialize numeric columns
+        for col in table_columns:
             if col not in ("date_time", "charge_no"):
                 out[col] = 0.0
 
-        # THEN assign charge_no (after init)
-        if "charge_no" in wide_df.columns:
-            out["charge_no"] = wide_df["charge_no"]
-        else:
-            out["charge_no"] = None
+        # charge number
+        out["charge_no"] = wide_df.get("charge_no")
 
+        # -------------------------------------------------
+        # NORMALIZE MATERIAL MAP
+        # -------------------------------------------------
         normalized_map = {
             str(k).strip().lower(): v
-            for k, v in material_column_map.items()
+            for k, v in (material_column_map or {}).items()
         }
 
         unmapped = set()
 
+        # -------------------------------------------------
+        # PROCESS EACH HOPPER (OPTIMIZED)
+        # -------------------------------------------------
         for hopper_no in range(1, 20):
             mat_col = f"hopper_{hopper_no}_material"
             val_col = f"hopper_{hopper_no}_value"
@@ -88,52 +85,37 @@ class RawChargeProcessor:
             if mat_col not in wide_df.columns or val_col not in wide_df.columns:
                 continue
 
-            for idx, row in wide_df.iterrows():
-                material = str(row[mat_col]).strip()
-                value_kg = pd.to_numeric(row[val_col], errors="coerce")
+            materials = wide_df[mat_col].astype(str).str.strip().str.lower()
+            values = pd.to_numeric(wide_df[val_col], errors="coerce")
+
+            for idx in wide_df.index:
+                material = materials.iloc[idx]
+                value_kg = values.iloc[idx]
 
                 if not material or pd.isna(value_kg) or value_kg == 0:
                     continue
 
-                db_col = normalized_map.get(material.lower())
+                db_col = normalized_map.get(material)
 
                 if not db_col:
                     unmapped.add(material)
                     continue
 
                 if db_col not in out.columns:
-                    unmapped.add(f"{material} -> {db_col} column missing")
+                    unmapped.add(f"{material} -> {db_col} (missing column)")
                     continue
 
-                out.at[idx, db_col] += float(value_kg) / 1000.0
+                out.at[idx, db_col] += float(value_kg) / 1000.0  # kg → MT
 
+        # -------------------------------------------------
+        # DEBUG UNMAPPED
+        # -------------------------------------------------
         if unmapped:
-            print("Unmapped charge materials:")
+            print("\n Unmapped charge materials:")
             for x in sorted(unmapped):
                 print(" -", x)
 
-        return out[table_cols]
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
+        # -------------------------------------------------
+        # FINAL COLUMN ORDER
+        # -------------------------------------------------
+        return out[table_columns]

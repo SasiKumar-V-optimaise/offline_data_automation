@@ -1,6 +1,7 @@
 # src/app.py
 import argparse
 import logging
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 import re
@@ -8,6 +9,7 @@ import re
 import yaml
 
 from core.config_loader import load_config
+from core.logging import setup_logging, get_logger, LogTemplates
 from infrastructure.selenium_client import SeleniumClient, SeleniumConfig
 from domains.download.service import PortalDownloader, DownloadConfig
 
@@ -107,14 +109,13 @@ def _load_charge_user_cfg(charge_yaml_path: Path) -> dict:
 # MAIN
 # -------------------------------------------------
 def main():
+    start_time = time.time()
     args = parse_args()
     cfg = load_config()
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-    )
-    logger = logging.getLogger("offline")
+    # Setup central logging
+    setup_logging()
+    logger = get_logger("offline")
 
     modes = [m.strip().lower() for m in args.mode.split(",") if m.strip()]
     valid_modes = {"rm", "dpr", "hot_metal", "rm_hm", "charge", "rm_stock"}
@@ -127,15 +128,12 @@ def main():
     # RESOLVE RUN DATES
     # -------------------------------------------------
     run_dates = parse_run_dates(args.rundate, args.today)
-    logger.info(
-        f"Run dates resolved: {run_dates[0]} → {run_dates[-1]} "
-        f"({len(run_dates)} day(s))"
-    )
+    logger.info(LogTemplates.start(args.mode, run_dates[0]))
 
     # -------------------------------------------------
     # DOWNLOAD STEP (ONCE)
     # -------------------------------------------------
-    logger.info("Starting download step")
+    logger.info("START | step=download")
 
     selenium = SeleniumClient(
         SeleniumConfig(default_timeout=int(cfg["download"]["default_timeout"]))
@@ -149,6 +147,7 @@ def main():
             file_station_url=cfg["eml"]["file_station_url"],
             hourly_url=cfg["eml"]["hourly_url"],
             portal_files=cfg["portal_files"],
+            mode_keywords=cfg["portal"].get("mode_keywords", {}),
         ),
         logger,
     )
@@ -170,7 +169,7 @@ def main():
         )
 
 
-        logger.info(f"Download completed. Skipped files: {sorted(skipped)}")
+        logger.info(f"DOWNLOAD | skipped={sorted(skipped)}")
 
     finally:
         selenium.stop()
@@ -225,7 +224,7 @@ def main():
         if rm_hm_files:
             RMHMService(logger).process(str(rm_hm_files[0]), cfg, run_dates)
         else:
-            logger.warning("No RM & HM file found after download.")
+            logger.warning(LogTemplates.skipped("no_rm_hm_file"))
 
     # -------------------------------------------------
     # RM STOCK
@@ -239,7 +238,7 @@ def main():
         )
 
         if not stock_files:
-            logger.warning("No RM STOCK file found after download.")
+            logger.warning(LogTemplates.skipped("no_rm_stock_file"))
         else:
             from domains.rm_stock.service import RMStockService
 
@@ -267,7 +266,7 @@ def main():
             output_dir="outputs",
             neon_dev_cfg=cfg["neon_dev"], 
             neondb_cfg=cfg["neondb"],  
-            charge_yaml_path="src/config/charge.yaml",
+            charge_cfg=cfg["charge"], 
             write_to_neon=True
             ),
             logger,
@@ -282,7 +281,7 @@ def main():
             ]
 
             if not matching:
-                logger.error(f"Charge file not found for {run_date}")
+                logger.error(LogTemplates.failed(f"charge_file_not_found={run_date}"))
                 continue
 
             charge_service.run(
@@ -290,7 +289,8 @@ def main():
                 run_date_str=run_date,
             )
 
-    logger.info("Offline data automation completed successfully.")
+    duration = time.time() - start_time
+    logger.info(LogTemplates.success(duration))
 
 
 if __name__ == "__main__":

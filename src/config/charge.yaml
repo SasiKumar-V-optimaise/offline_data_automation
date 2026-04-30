@@ -1,36 +1,63 @@
-material_column_map:
-  # ORE
-  NMDC Limited (Donimalai): ore_1_mt
-  NMDC Limited Crushed ROM (10-40MM) (Kirandul): ore_1_mt
-  Lloyds CLO: ore_2_mt
-  Geomin CLO: ore_3_mt
-  JRS Ventures: ore_4_mt
-  NMDC Limited Lumps (10-150 MM) (Kirandul): ore_5_mt
-  Lloyds Metals Iron Fines Oversize (+10MM): ore_6_mt
-  Bacheli oversize CLO: ore_7_mt
-  MN Ore: ore_8_mt
-  TITANI FERROUS CLO: ore_9_mt
-  GOMTI: ore_10_mt
-  Donimalai Fines Over size: ore_11_mt
-  Sarda Energy & Minerals Limited: ore_12_mt
+charge:
+  table_columns:
+    - date_time
+    - charge_no
+    - ore_1_mt
+    - ore_2_mt
+    - ore_3_mt
+    - ore_4_mt
+    - ore_5_mt
+    - ore_6_mt
+    - ore_7_mt
+    - ore_8_mt
+    - ore_9_mt
+    - ore_10_mt
+    - ore_11_mt
+    - ore_12_mt
+    - flux_1_mt
+    - flux_2_mt
+    - flux_3_mt
+    - coke_2_mt
+    - coke_1_mt
+    - nut_coke_1_mt
+    - pci_mt
+    - sinter_3_mt
+    - pellet_1_mt
+    - pellet_2_mt
 
-  # FLUX
-  Dolomite: flux_1_mt
-  Quartz: flux_2_mt
-  Lime Stone: flux_3_mt
+  material_column_map:
+    # ORE
+    NMDC Limited (Donimalai): ore_1_mt
+    NMDC Limited Crushed ROM (10-40MM) (Kirandul): ore_1_mt
+    Lloyds CLO: ore_2_mt
+    Geomin CLO: ore_3_mt
+    JRS Ventures: ore_4_mt
+    NMDC Limited Lumps (10-150 MM) (Kirandul): ore_5_mt
+    Lloyds Metals Iron Fines Oversize (+10MM): ore_6_mt
+    Bacheli oversize CLO: ore_7_mt
+    MN Ore: ore_8_mt
+    TITANI FERROUS CLO: ore_9_mt
+    GOMTI: ore_10_mt
+    Donimalai Fines Over size: ore_11_mt
+    Sarda Energy & Minerals Limited: ore_12_mt
 
-  # COKE
-  Coke Online: coke_1_mt
-  Coke Offline: coke_2_mt
+    # FLUX
+    Dolomite: flux_1_mt
+    Quartz: flux_2_mt
+    Lime Stone: flux_3_mt
 
-  # NUT COKE
-  Nut Coke: nut_coke_1_mt
+    # COKE
+    Coke Online: coke_1_mt
+    Coke Offline: coke_2_mt
 
-  # SINTER
-  Sinter: sinter_3_mt
+    # NUT COKE
+    Nut Coke: nut_coke_1_mt
 
-  # PELLET
-  Lloyds Pellet: pellet_1_mt
+    # SINTER
+    Sinter: sinter_3_mt
+
+    # PELLET
+    Lloyds Pellet: pellet_1_mt
   
   # - Sinter
   # - Bacheli oversize CLO

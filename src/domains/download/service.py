@@ -12,8 +12,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support import expected_conditions as EC
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from core.logging import get_logger, LogTemplates
+
+logger = get_logger(__name__)
 
 
 # -------------------------------------------------
@@ -26,6 +27,7 @@ class DownloadConfig:
     file_station_url: str
     hourly_url: str
     portal_files: Dict[str, str]
+    mode_keywords: Dict[str, List[str]] = None
 
 
 # -------------------------------------------------
@@ -142,7 +144,7 @@ class PortalDownloader:
     # DOWNLOAD WITH METADATA CHECK
     # -------------------------------------------------
     def _download_latest_file(self, url: str, keywords: List[str]) -> str:
-        self.logger.info(f"Searching latest file using keywords: {keywords}")
+        logger.info(LogTemplates.download(f"searching_keywords={keywords}"))
 
         self.sc.driver.get(url)
         self.sc.wait.until(
@@ -168,29 +170,29 @@ class PortalDownloader:
         rows = self._wait_for_rows()
 
         if not rows:
-            self.logger.error("File list not loaded (timeout)")
+            logger.error(LogTemplates.failed("file_list_not_loaded"))
             return "failed"
 
         target = self._find_latest_matching_file(rows, keywords)
 
         if not target:
-            self.logger.error(f"No file found for {keywords}")
+            logger.error(LogTemplates.failed(f"no_file_found_keywords={keywords}"))
             return "failed"
 
         metadata = self._load_metadata()
         name = self._normalize_name(target["name"])
         modified = target["modified"]
 
-        self.logger.info(f"Latest file: {name} | Modified: {modified}")
+        logger.info(f"FILE | name={name} modified={modified}")
 
         prev_modified = metadata["root"].get(name)
 
         if prev_modified == modified:
-            self.logger.info(f"SKIPPED (no change): {name}")
+            logger.info(LogTemplates.skipped(f"no_change={name}"))
             return "skipped"
 
         # ---------------- DOWNLOAD ----------------
-        self.logger.info(f"Downloading: {target['name']}")
+        logger.info(LogTemplates.download(f"name={target['name']}"))
 
         start = time.time()
         self.sc.driver.execute_script(
@@ -199,20 +201,20 @@ class PortalDownloader:
         ActionChains(self.sc.driver).double_click(target["el"]).perform()
 
         if not self._wait_for_download(start):
-            self.logger.error("Download failed")
+            logger.error(LogTemplates.failed("download_timeout"))
             return "failed"
 
         # ---------------- VALIDATE ----------------
         files = os.listdir(os.path.expanduser(self.cfg.download_dir))
         if not any(all(k in f.lower() for k in keywords) for f in files):
-            self.logger.error("Downloaded file mismatch")
+            logger.error(LogTemplates.failed("file_mismatch"))
             return "failed"
 
         # ---------------- UPDATE METADATA ----------------
         metadata["root"][name] = modified
         self._save_metadata(metadata)
 
-        self.logger.info(f"Metadata updated for: {name}")
+        logger.info(f"METADATA | updated={name}")
 
         return "downloaded"
 
@@ -224,7 +226,7 @@ class PortalDownloader:
             result = self._download_latest_file(url, keywords)
             if result in ("downloaded", "skipped"):
                 return result
-            self.logger.warning(f"Retry {attempt+1}/3 for {keywords}")
+            logger.warning(f"RETRY | attempt={attempt+1}/3 keywords={keywords}")
             time.sleep(3)
         return "failed"
 
@@ -252,7 +254,7 @@ class PortalDownloader:
                 name = r["name"]
 
                 if name in required_files and name not in found:
-                    self.logger.info(f"Downloading CHARGE: {name}")
+                    logger.info(LogTemplates.download(f"charge={name}"))
 
                     start = time.time()
                     self.sc.driver.execute_script(
@@ -274,16 +276,10 @@ class PortalDownloader:
     # -------------------------------------------------
     # MAIN ENTRY
     # -------------------------------------------------
-    def download(self, modes: list[str], run_dates: list[str], is_today_mode: bool) -> Set[str]:
+    def download(self, modes, run_dates, is_today_mode):
         skipped = set()
 
-        mode_keywords = {
-            "rm": ["bf-02", "bunker"],
-            "dpr": ["bf-02", "dpr"],
-            "hot_metal": ["bf-02", "hot", "metal"],
-            "rm_hm": ["rm", "hm"],  # keep as is (no bf filter needed)
-            "rm_stock": ["bulk", "stock"],
-        }
+        mode_keywords = self.cfg.mode_keywords
 
         for m in modes:
             if m == "charge":
@@ -302,7 +298,7 @@ class PortalDownloader:
                 skipped.add(m)
 
             elif result == "skipped":
-                self.logger.info(f"{m} skipped (no update)")
+                logger.info(LogTemplates.skipped(f"mode={m}"))
 
         # ---------------- CHARGE ----------------
         if "charge" in modes:

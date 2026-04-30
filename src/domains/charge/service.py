@@ -1,5 +1,5 @@
 # src/domains/charge/service.py
-import os
+
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -8,21 +8,27 @@ import pandas as pd
 from .reader import ChargeExcelReader
 from .processor import RawChargeProcessor
 from .hopper_repository import HopperSnapshotRepository
-import yaml
 from infrastructure.neon_client import NeonClient
+from core.logging import get_logger, LogTemplates
+
+logger = get_logger(__name__)
 
 
-
-
+# -------------------------------------------------
+# CONFIG
+# -------------------------------------------------
 @dataclass
 class ChargeServiceConfig:
     output_dir: str
-    neon_dev_cfg: dict   # snapshot DB
-    neondb_cfg: dict     # charge_data DB
-    charge_yaml_path: str = "src/config/charge.yaml"
+    neon_dev_cfg: dict      # snapshot DB
+    neondb_cfg: dict        # charge_data DB
+    charge_cfg: dict       
     write_to_neon: bool = False
 
 
+# -------------------------------------------------
+# SERVICE
+# -------------------------------------------------
 class ChargeService:
     def __init__(self, cfg: ChargeServiceConfig, logger):
         self.cfg = cfg
@@ -34,57 +40,77 @@ class ChargeService:
     def run(self, charge_file: str, run_date_str: str) -> pd.DataFrame:
         target_date = datetime.strptime(run_date_str, "%d-%b-%Y")
 
-        self.logger.info(f"Reading raw charge data for {run_date_str}")
+        logger.info(f"READ | charge_file={Path(charge_file).name} date={run_date_str}")
 
+        # -------------------------------------------------
+        # READ RAW DATA
+        # -------------------------------------------------
         raw_df = self.reader.read_target_day_raw(
             file_path=charge_file,
             target_date=target_date,
         )
 
-        self.logger.info(f"Raw rows found: {len(raw_df)}")
+        logger.info(LogTemplates.process(len(raw_df)))
 
+        # -------------------------------------------------
+        # FETCH SNAPSHOTS
+        # -------------------------------------------------
         snapshots = self.snapshot_repo.fetch_for_day(target_date)
-        self.logger.info(f"Snapshots loaded: {len(snapshots)}")
-        self.logger.info(f"First snapshot: {snapshots[0]['ts']}")
-        self.logger.info(f"Last snapshot: {snapshots[-1]['ts']}")
 
+        if not snapshots:
+            raise ValueError("No hopper snapshots found for the given date")
+
+        logger.info(
+            f"SNAPSHOTS | count={len(snapshots)} "
+            f"first={snapshots[0]['ts']} last={snapshots[-1]['ts']}"
+        )
+
+        # -------------------------------------------------
+        # PROCESS WIDE FORMAT
+        # -------------------------------------------------
         final_df = self.processor.process_wide_with_time(
             raw_df=raw_df,
-            snapshots=snapshots
+            snapshots=snapshots,
         )
+
+        # -------------------------------------------------
+        # SAVE RAW OUTPUT
+        # -------------------------------------------------
         Path(self.cfg.output_dir).mkdir(parents=True, exist_ok=True)
 
         out_path = Path(self.cfg.output_dir) / f"raw_charge_data_{target_date:%Y_%m_%d}.xlsx"
         final_df.to_excel(out_path, index=False)
 
-        self.logger.info(f"Raw charge Excel written: {out_path}")
+        logger.info(f"OUTPUT | file={out_path.name}")
 
-        # ------------------------------
-        # LOAD CHARGE YAML MAPPING
-        # ------------------------------
-        with open(self.cfg.charge_yaml_path, "r", encoding="utf-8") as f:
-            charge_cfg = yaml.safe_load(f) or {}
+        # -------------------------------------------------
+        # LOAD CONFIG 
+        # -------------------------------------------------
+        charge_cfg = self.cfg.charge_cfg
 
         material_column_map = charge_cfg.get("material_column_map", {})
+        table_columns = charge_cfg.get("table_columns", [])
 
-        # ------------------------------
+        if not table_columns:
+            raise ValueError("charge.table_columns is missing in config")
+
+        # -------------------------------------------------
         # CONVERT TO DB FORMAT
-        # ------------------------------
+        # -------------------------------------------------
         db_df = self.processor.to_charge_data_table(
             wide_df=final_df,
             material_column_map=material_column_map,
+            table_columns=table_columns,   # explicit
         )
 
         db_out_path = Path(self.cfg.output_dir) / f"charge_data_table_{target_date:%Y_%m_%d}.xlsx"
         db_df.to_excel(db_out_path, index=False)
 
-        self.logger.info(f"Charge DB-format Excel written: {db_out_path}")
+        logger.info(f"OUTPUT | db_format={db_out_path.name}")
 
-
-
-        # ------------------------------
+        # -------------------------------------------------
         # WRITE TO NEON DB
-        # ------------------------------
+        # -------------------------------------------------
         if self.cfg.write_to_neon:
             client = NeonClient(self.cfg.neondb_cfg)
 
@@ -96,7 +122,7 @@ class ChargeService:
                     upsert_mode="on_conflict",
                 )
 
-                self.logger.info(f"Inserted/updated rows in charge_data: {inserted}")
+                logger.info(LogTemplates.db_inserted(inserted))
 
             finally:
                 client.close()

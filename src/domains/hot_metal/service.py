@@ -6,6 +6,9 @@ from infrastructure.influx_client import InfluxClient
 
 from domains.hot_metal.reader import HotMetalReader
 from domains.hot_metal.config_updater import HotMetalConfigUpdater
+from core.logging import get_logger, LogTemplates
+
+logger = get_logger(__name__)
 
 OUTPUT_DIR = r"C:\dev\offline_data_automation\output"
 
@@ -22,7 +25,7 @@ class HotMetalService:
         field_map = hm_cfg.get("hot_metal_fields", {})
 
         for run_date in run_dates:
-            self.logger.info(f"Processing HOT_METAL for {run_date}")
+            logger.info(f"START | mode=hot_metal date={run_date}")
 
             # Update config (sheet selection)
             hm_cfg = self.updater.update_from_excel(hm_file, hm_cfg, run_date)
@@ -31,7 +34,7 @@ class HotMetalService:
             df = self.reader.read_for_dates(hm_file, [run_date], hm_cfg)
 
             if df is None or df.empty:
-                self.logger.warning(f"No HOT_METAL data for {run_date}")
+                logger.warning(LogTemplates.skipped(f"no_data={run_date}"))
                 continue
 
             # 🔥 IMPORTANT FIX:
@@ -55,11 +58,11 @@ class HotMetalService:
             os.makedirs(OUTPUT_DIR, exist_ok=True)
             out_path = os.path.join(OUTPUT_DIR, "combined_hot_data.xlsx")
             df.to_excel(out_path, index=False)
-            self.logger.info(f"HOT_METAL output written → {out_path}")
+            logger.info(f"OUTPUT | file={out_path}")
 
             # Push to InfluxDB
             if not influx_cfg:
-                self.logger.warning("Influx config missing — skipping Influx push")
+                logger.warning(LogTemplates.skipped("no_influx_config"))
                 continue
 
             influx = InfluxClient(influx_cfg)
@@ -70,6 +73,6 @@ class HotMetalService:
                     field_mapping=field_map,
                     tag_keys=["lab_sample_id", "cast_no_ladle_spec"],
                 )
-                self.logger.info(f"HOT_METAL {run_date} pushed to InfluxDB")
+                logger.info(LogTemplates.db_inserted(len(df)))
             finally:
                 influx.close()
