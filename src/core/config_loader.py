@@ -55,7 +55,7 @@ def load_config(
     hm_file_cfg = load_yaml(hot_metal_path)
     rm_hm_file_cfg = load_yaml(rm_hm_path)
 
-    # Merge base + secrets
+    # Merge base + secret
     merged = _deep_merge(base, secrets)
 
     # -----------------------------

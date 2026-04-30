@@ -262,8 +262,9 @@ class PortalDownloader:
 
                     if self._wait_for_download(start):
                         found.add(name)
-                    else:
-                        skipped.add(name)
+
+                        if found == required_files:
+                            return skipped
 
             self.sc.driver.execute_script("arguments[0].scrollTop += 1000", panel)
             time.sleep(0.5)
@@ -305,23 +306,15 @@ class PortalDownloader:
 
         # ---------------- CHARGE ----------------
         if "charge" in modes:
-            dates = set()
-
             if is_today_mode:
-                today = datetime.today()
-                dates |= {today, today - timedelta(days=1)}
+                dates = {datetime.today()}
             else:
-                for rd in run_dates:
-                    d = datetime.strptime(rd, "%d-%b-%Y")
-                    dates |= {d, d - timedelta(days=1)}
+                dates = {datetime.strptime(rd, "%d-%b-%Y") for rd in run_dates}
 
-            required = set()
-            for d in dates:
-                for stem in (
-                    f"CHARGE_AND_DUMP_REPORT_{d.day}_{d.month}_{d.year}",
-                    f"CHARGE_AND_DUMP_REPORT_{d.day:02d}_{d.month:02d}_{d.year}",
-                ):
-                    required |= {stem + ".xls", stem + ".xlsx"}
+            required = {
+                f"CHARGE_AND_DUMP_REPORT_{d.day}_{d.month}_{d.year}.xlsx"
+                for d in dates
+            }
 
             skipped |= self._scroll_and_download_charge(
                 self.cfg.hourly_url,
