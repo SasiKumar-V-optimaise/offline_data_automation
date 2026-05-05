@@ -37,7 +37,8 @@ class NeonClient:
                 df["date_time"] = df["date_time"].dt.tz_localize("Asia/Kolkata")
             df["date_time"] = df["date_time"].dt.tz_convert("UTC")
 
-        df = df.where(df.notnull(), None)
+        # Drop rows with NaN values to prevent writing NaN to DB
+        df = df.dropna()
 
         cols = list(df.columns)
         values = [tuple(row) for row in df.itertuples(index=False, name=None)]
