@@ -29,10 +29,13 @@ material_column_map:
   Lloyds Metals Iron Fines Oversize (+10MM): ore_6_mt
   Bacheli oversize CLO: ore_7_mt
   MN Ore: ore_8_mt
-  TITANI FERROUS CLO: ore_9_mt
+  TITANI FERROUS CLO: ore_8_mt
+  JAYASWAL NECO INDUSTRIES LIMITED: ore_9_mt
+
   GOMTI: ore_10_mt
   Donimalai Fines Over size: ore_11_mt
   Sarda Energy & Minerals Limited: ore_12_mt
+  
 
   # FLUX
   Dolomite: flux_1_mt

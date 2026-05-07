@@ -15,27 +15,34 @@ rm:
   neon:
     conflict_cols: [material_id, date_time]
     category_map:
-      "fuel coke online":      {table: fuel_chemistry,   db_material: COKE 1}
-      "fuel coke offline":     {table: fuel_chemistry,   db_material: COKE 2}
-      "fuel nut coke online":  {table: fuel_chemistry,   db_material: NUT COKE 1}
-      "fuel nut coke offline": {table: fuel_chemistry,   db_material: NUT COKE 2}
-      "fuel pci":              {table: fuel_chemistry,   db_material: PCI}
-      "flux 1":                {table: flux_chemistry,   db_material: FLUX 1}
-      "flux 2":                {table: flux_chemistry,   db_material: FLUX 2}
-      "flux 3":                {table: flux_chemistry,   db_material: FLUX 3}
-      "sinter sp 02 online":   {table: sinter_chemistry, db_material: SINTER 3}
-      "sinter sp 02 offline": {table: sinter_chemistry, db_material: SINTER 4}
-      "ore 1":                 {table: ore_chemistry,    db_material: ORE 1}
-      "ore 2":                 {table: ore_chemistry,    db_material: ORE 2}
-      "ore 3":                 {table: ore_chemistry,    db_material: ORE 3}
-      "ore 4":                 {table: ore_chemistry,    db_material: ORE 4}
-      "ore 5":                 {table: ore_chemistry,    db_material: ORE 5}
-      "ore 6":                 {table: ore_chemistry,    db_material: ORE 6}
-      "ore 7":                 {table: ore_chemistry,    db_material: ORE 7}
-      "ore 8":                 {table: ore_chemistry,    db_material: ORE 8}
-      "ore 9":                 {table: ore_chemistry,    db_material: ORE 9}
-      "ore 10":                {table: ore_chemistry,    db_material: ORE 10}
-      "ore pellet 1":          {table: ore_chemistry,    db_material: PELLET 1}
+      "fuel coke online":      {table: fuel_chemistry,   db_material: coke_1}
+      "fuel coke offline":     {table: fuel_chemistry,   db_material: coke_2}
+      "fuel nut coke online":  {table: fuel_chemistry,   db_material: nut_coke_1}
+      "fuel nut coke offline": {table: fuel_chemistry,   db_material: nut_coke_2}
+      "fuel pci":              {table: fuel_chemistry,   db_material: pci}
+
+      "flux 1":                {table: flux_chemistry,   db_material: flux_1}
+      "flux 2":                {table: flux_chemistry,   db_material: flux_2}
+      "flux 3":                {table: flux_chemistry,   db_material: flux_3}
+
+      "sinter sp 02 online":   {table: sinter_chemistry, db_material: sinter_3}
+      "sinter sp 02 offline":  {table: sinter_chemistry, db_material: sinter_4}
+
+      "ore 1":                 {table: ore_chemistry,    db_material: ore_1}
+      "ore 2":                 {table: ore_chemistry,    db_material: ore_2}
+      "ore 3":                 {table: ore_chemistry,    db_material: ore_3}
+      "ore 4":                 {table: ore_chemistry,    db_material: ore_4}
+      "ore 5":                 {table: ore_chemistry,    db_material: ore_5}
+      "ore 6":                 {table: ore_chemistry,    db_material: ore_6}
+      "ore 7":                 {table: ore_chemistry,    db_material: ore_7}
+      "ore 8":                 {table: ore_chemistry,    db_material: ore_8}
+      "ore 9":                 {table: ore_chemistry,    db_material: ore_9}
+      "ore 10":                {table: ore_chemistry,    db_material: ore_10}
+      "ore 11":                {table: ore_chemistry,    db_material: ore_11}
+      "ore 12":                {table: ore_chemistry,    db_material: ore_12}
+
+      "ore pellet 1":          {table: ore_chemistry,    db_material: pellet_1}
+      "ore pellet 2":          {table: ore_chemistry,    db_material: pellet_2}
 
   sheet_config:
     COKE:                     {col_prefix: COKE_,          columns: A:J, header_row: 2, sheet_name: LAM COKE}
