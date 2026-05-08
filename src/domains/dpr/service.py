@@ -78,19 +78,27 @@ class DPRService:
             return pd.DataFrame()
 
         combined = pd.concat(all_frames, ignore_index=True)
+        for col in combined.columns:
+            if col != "date_time":
+                combined[col] = pd.to_numeric(combined[col], errors="coerce")
 
         os.makedirs(output_dir, exist_ok=True)
         out_path = os.path.join(output_dir, output_filename)
         combined.to_excel(out_path, index=False)
         self.logger.info(f"DPR output written → {out_path}")
 
-        neon_cfg = setting_cfg.get("neondb")
-        if neon_cfg:
+        neon_cfg = setting_cfg.get("neon_developer")
+        if neon_cfg and neon_cfg.get("url"):
             dpr_neon = dpr_cfg.get("neon", {})
             table = dpr_neon.get("table", "dpr_data")
+            schema = dpr_neon.get("schema")
+            if schema and "." not in table:
+                table = f"{schema}.{table}"
+
             conflict_cols = dpr_neon.get("conflict_cols", ["date_time"])
             upsert_mode = dpr_neon.get("upsert_mode", "delete_insert")
 
+            self.logger.info(f"Pushing DPR data to NeonDB table: {table}")
             neon = NeonClient(neon_cfg)
             try:
                 rows = neon.insert_dataframe(
@@ -100,9 +108,12 @@ class DPRService:
                     upsert_mode=upsert_mode,
                 )
                 self.logger.info(f"DPR pushed to NeonDB: {rows} rows upserted")
-            except Exception as e:
-                self.logger.error(f"DPR NeonDB push failed: {e}")
+            except Exception:
+                self.logger.exception("DPR NeonDB push failed")
+                raise
             finally:
                 neon.close()
+        else:
+            self.logger.warning("Neon developer config missing or empty; skipping DPR DB push")
 
         return combined

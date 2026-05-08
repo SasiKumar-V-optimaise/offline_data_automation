@@ -5,6 +5,7 @@ from typing import Any, Dict
 import os
 import yaml
 import re
+from dotenv import load_dotenv
 
 
 _ENV_PATTERN = re.compile(r"^\$\{([A-Z0-9_]+)\}$")
@@ -40,6 +41,21 @@ def load_yaml(path: str | Path) -> Dict[str, Any]:
         return yaml.safe_load(f) or {}
 
 
+def _load_env(env_path: str | Path) -> None:
+    p = Path(env_path)
+    if p.is_absolute():
+        load_dotenv(p, override=False)
+        return
+
+    project_root = Path(__file__).resolve().parents[2]
+    for candidate in (Path.cwd() / p, project_root / p):
+        if candidate.exists():
+            load_dotenv(candidate, override=False)
+            return
+
+    load_dotenv(p.resolve(), override=False)
+
+
 def load_config(
     base_path: str = "src/config/base.yaml",
     secrets_path: str = "src/config/secrets.yaml",
@@ -47,7 +63,10 @@ def load_config(
     dpr_path: str = "src/config/dpr.yaml",
     hot_metal_path: str = "src/config/hot_metal.yaml",
     rm_hm_path: str = "src/config/rm_hm.yaml",
+    env_path: str | Path = ".env",
 ):
+    _load_env(env_path)
+
     base = load_yaml(base_path)
     secrets = load_yaml(secrets_path)
     rm_file_cfg = load_yaml(rm_path)

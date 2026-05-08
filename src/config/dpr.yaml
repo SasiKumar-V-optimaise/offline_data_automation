@@ -6,218 +6,135 @@ dpr:
     filename: combined_dpr_data.xlsx
 
   neon:
+    schema: offline_feed
     table: dpr_data
     conflict_cols: [date_time]
     upsert_mode: delete_insert
 
   fields:
     Date: date_time
-    # ORES
+
     NMDC_MT: ore_1_mt
     LLOYDS_MT: ore_2_mt
     GEOMIN_MT: ore_3_mt
     JRSVENTURES_MT: ore_4_mt
     NMDC_ROM_MT: ore_5_mt
     LLOYDS_FINES_MT: ore_6_mt
-    Bacheli over size fines +10mm: ore_7_mt
-    Acore MN Ore_MT: ore_8_mt
+    "Bacheli over size fines +10mm": ore_7_mt
+    "Acore MN Ore_MT": ore_8_mt
     JAYASWAL_NECO_MT: ore_9_mt
     GOMTI_MT: ore_10_mt
     Donimalai_Fines_Over_size_MT: ore_11_mt
 
-    # FLUX
     DOLOMITE_MT: flux_1_mt
     QUARTZITE_MT: flux_2_mt
     LIME_STONE_MT: flux_3_mt
 
-    # COKE
     COKE_ONLINE_MT: coke_1_mt
     COKE_OFFLINE_MT: coke_2_mt
 
-    # NUT COKE
     PRIME_NUT_COKE_MT: nut_coke_1_mt
     YARD_NUTCOKE_MT: nut_coke_2_mt
 
-    # SINTER
     SINTER_1_MT: sinter_1_mt
     SINTER_2_MT: sinter_2_mt
     SINTER_3_MT: sinter_3_mt
     SINTER_4_MT: sinter_4_mt
 
-    # PELLET
     LLOYDS_PELLET_MT: pellet_1_mt
 
-    # OTHER
     PCI_MT: pci_mt
     TOTAL_HOT_METAL_MT: total_hot_metal_mt
     SLAG_GENERATION_MT: slag_generation_mt
+    "Flue Dust (Dust Catcher)": flue_dust_mt
+    "GCP Dust (Silo's)": gcp_dust_mt
+    "Stock House Dust": stock_house_dust_mt
+    "Cast House Dust": cast_house_dust_mt
 
   config:
-    sheets:
-      Jan26:
-        sheet_name: 'Jan''26 '
-        date_row: 5
-        date_cols: [H, AM]
-        rename_map:
-          COKE_OFFLINE_MT:
-          - Total purchase coke
-          COKE_ONLINE_MT:
-          - Coke Online - EML
-          DOLOMITE_MT:
-          - Dolomite
-          Donimalai_Fines_Over_size_MT:
-          - Donimalai  Fines Over size
-          GEOMIN_MT:
-          - Geomine industries
-          JRSVENTURES_MT:
-          - JRS VENTURES
-          LLOYDS_FINES_MT:
-          - Llyods fines oversize(+10mm)
-          - Lloyds fines oversize
-          LLOYDS_MT:
-          - Lloyds metal energy
-          TOTAL_PELLET_MT:
-          - Total Pellet
-          NMDC_MT:
-          - NMDC DONIMALAI
-          PCI_MT:
-          - PCI Coal
-          PRIME_NUT_COKE_MT:
-          - Prime Nut Coke (B-13)
-          QUARTZITE_MT:
-          - Quartzite
-          SINTER_1_MT:
-          - Sinter online(SP-01)
-          SINTER_2_MT:
-          - Sinter offline(SP-01)
-          SINTER_3_MT:
-          - Sinter online(SP-02)
-          SINTER_4_MT:
-          - Sinter offline(SP-02)
-          YARD_NUTCOKE_MT:
-          - Yard Nut Coke (B-3)
-          SLAG_GENERATION_MT:
-          - Slag Generation (Calculated)
-          NMDC_ROM_MT:
-          - ROM
-          Acore MN Ore_MT:
-          - Acore MN Ore
-          GOMTI_MT:
-          - Gomati
-          TOTAL_COKE_MT:
-          - Total Coke
-          TOTAL_HOT_METAL_MT:
-          - Total Hot Metal Production
-        rows:
-          Coke Online - EML: 282
-          Dolomite: 251
-          Geomine industries: 128
-          JRS VENTURES: 0
-          Lloyds metal energy: 177
-          Llyods fines oversize(+10mm): 0
-          Lloyds fines oversize: 114
-          Total Pellet: 107
-          NMDC DONIMALAI: 163
-          Online+Offline Sinter: 30
-          PCI Coal: 29
-          Prime Nut Coke (B-13): 27
-          Quartzite: 252
-          Total purchase coke: 286
-          Yard Nut Coke (B-3): 28
-          Slag Generation (Calculated): 15
-          ROM: 0
-          Acore MN Ore: 121
-          Gomati: 184
-          Total Hot Metal Production: 7
-          JAYASWAL NECO: 0
-          Donimalai  Fines Over size: 0
-          
-          Sinter offline(SP-01): 0 
-          Sinter online(SP-01): 0
-          Sinter offline(SP-02): 0
-          Sinter online(SP-02): 0
+    defaults:
+      date_row: 5
+      date_cols: [H, AM]
+      label_scan_cols: [A, G]
 
-
-      Mar26:
-        sheet_name: Mar'26
-        date_row: 5
-        date_cols: [H, AM]
-        rename_map:
-          COKE_OFFLINE_MT:
-          - Coke Offline - EML
-          COKE_ONLINE_MT:
-          - Coke Online - EML
-          TOtAL_PURCHASE_COKE_MT:
-          - Total purchase coke
-          DOLOMITE_MT:
-          - Dolomite
-          GEOMIN_MT:
-          - Geomine industries
-          JRSVENTURES_MT:
-          - JRS VENTURES
-          LLOYDS_FINES_MT:
-          - Llyods fines oversize(+10mm)
-          - Lloyds fines oversize
-          LLOYDS_MT:
-          - Lloyds metal energy
-          TOTAL_PELLET_MT:
-          - Total Pellet
-          NMDC_MT:
+      row_aliases:
+        NMDC_MT:
           - NMDC DONIMALAI
-          PCI_MT:
-          - PCI Coal
-          PRIME_NUT_COKE_MT:
-          - Prime Nut Coke (B-13)
-          QUARTZITE_MT:
-          - Quartzite
-          SINTER_1_MT:
-          - Sinter online(SP-01)
-          SINTER_2_MT:
-          - Sinter offline(SP-01)
-          SINTER_3_MT:
-          - Sinter online(SP-02)
-          SINTER_4_MT:
-          - Sinter offline(SP-02)
-          YARD_NUTCOKE_MT:
-          - Yard Nut Coke (B-3)
-          SLAG_GENERATION_MT:
-          - Slag Generation (Calculated)
-          NMDC_ROM_MT:
+        LLOYDS_MT:
+          - Lloyds metal energy
+        GEOMIN_MT:
+          - Geomine industries
+        JRSVENTURES_MT:
+          - JRS VENTURES
+        NMDC_ROM_MT:
           - NMDC ROM
-          Acore MN Ore_MT:
+          - ROM
+        LLOYDS_FINES_MT:
+          - Lloyds fines oversize
+          - Llyods fines oversize(+10mm)
+          - Llyods fines oversize
+        "Bacheli over size fines +10mm":
+          - Bacheli over size fines +10mm
+          - Bacheli oversize CLO
+        "Acore MN Ore_MT":
           - Acore MN Ore
-          GOMTI_MT:
-          - Gomati
-          TOTAL_COKE_MT:
-          - Total Coke
-          TOTAL_HOT_METAL_MT:
-          - Total Hot Metal Production
-          JAYASWAL_NECO_MT:
+        JAYASWAL_NECO_MT:
           - JAYASWAL NECO
-          DONIMALAI_FINES_OVER_SIZE_MT:
+          - NECO Jayaswal
+        GOMTI_MT:
+          - Gomati
+          - GOMTI
+        Donimalai_Fines_Over_size_MT:
+          - Donimalai Fines Over size
           - Donimalai  Fines Over size
-          LLOYDS_PELLET_MT:
+
+        DOLOMITE_MT:
+          - Dolomite
+        QUARTZITE_MT:
+          - Quartzite
+        LIME_STONE_MT:
+          - Limestone
+          - Lime Stone
+
+        COKE_ONLINE_MT:
+          - Coke Online - EML
+        COKE_OFFLINE_MT:
+          - Coke Offline - EML
+          - Coke Offline - EML(WHARF)
+          - Total purchase coke
+
+        PRIME_NUT_COKE_MT:
+          - Prime Nut Coke (B-13)
+        YARD_NUTCOKE_MT:
+          - Yard Nut Coke (B-3)
+          - Yard Nut Coke
+
+        SINTER_1_MT:
+          - Sinter online(SP-01)
+        SINTER_2_MT:
+          - Sinter offline(SP-01)
+        SINTER_3_MT:
+          - Sinter online(SP-02)
+        SINTER_4_MT:
+          - Sinter offline(SP-02)
+
+        LLOYDS_PELLET_MT:
           - Lloyds Pellet -
-        rows:
-          Coke Online - EML: 282
-          Coke Offline - EML: 0
-          Dolomite: 251
-          Geomine industries: 128
-          JRS VENTURES: 0
-          Lloyds metal energy: 177
-          Llyods fines oversize(+10mm): 0
-          Lloyds fines oversize: 114
-          Total Pellet: 107
-          NMDC DONIMALAI: 163
-          Online+Offline Sinter: 30
-          PCI Coal: 29
-          Prime Nut Coke (B-13): 27
-          Quartzite: 252
-          Total purchase coke: 286
-          Yard Nut Coke (B-3): 28
-          Slag Generation (Calculated): 15
-          NMDC ROM: 0
-          Acore MN Ore: 0
-          Gomati: 184
-          Total Hot Metal Production: 7
-          Lloyds Pellet - : 0
+          - Lloyds Pellet
+
+        PCI_MT:
+          - PCI Coal
+        TOTAL_HOT_METAL_MT:
+          - Total Hot Metal Production
+        SLAG_GENERATION_MT:
+          - Slag Generation (Calculated)
+        "Flue Dust (Dust Catcher)":
+          - Flue Dust (Dust Catcher)
+        "GCP Dust (Silo's)":
+          - GCP Dust (Silo's)
+        "Stock House Dust":
+          - Stock House Dust
+        "Cast House Dust":
+          - Cast House Dust
+
+    sheets: {}

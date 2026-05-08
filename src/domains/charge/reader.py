@@ -21,7 +21,8 @@ class ChargeExcelReader:
         if "DATETIME" not in df.columns:
             raise ValueError("DATETIME column not found")
 
-        keep_cols = ["DATETIME"]
+        df["SOURCE_ROW_NUMBER"] = df.index + header_row + 2
+        keep_cols = ["DATETIME", "SOURCE_ROW_NUMBER"]
 
         if "CHARGE_NO" in df.columns:
             keep_cols.append("CHARGE_NO")

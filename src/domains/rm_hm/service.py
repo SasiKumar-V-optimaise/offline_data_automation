@@ -153,12 +153,12 @@ class RMHMService:
 
                 rows = client.insert_dataframe(
                     df=filtered,
-                    table_name="rm_hm",
-                    conflict_cols=["date_time"],  # ✅ matches your "one row per day"
-                    upsert_mode="on_conflict"
+                    table_name="offline_feed.raw_material_strength_analysis",
+                    conflict_cols=["date_time"],
+                    upsert_mode="delete_insert",
                 )
 
-                self.logger.info(f"Inserted {rows} rows into rm_hm table")
+                self.logger.info(f"Inserted {rows} rows → offline_feed.raw_material_strength_analysis")
 
                 client.close()
 

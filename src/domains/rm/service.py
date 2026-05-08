@@ -96,6 +96,7 @@ class RMService:
             combined = combined.rename(columns=rename_map)
             self.logger.info("RM fields renamed using rm.yaml mapping")
 
+        os.makedirs(output_dir, exist_ok=True)
         combined.to_excel(os.path.join(output_dir, "rm_combined_raw_1.xlsx"), index=False)
         # ── Fix shift order (C → A → B) ──────────────────────────────────
         combined["SHIFT"] = combined["MERGE_KEY"].str.split("_").str[-1]
@@ -132,29 +133,50 @@ class RMService:
             allowed = [c for c in rename_map.values() if c in combined.columns]
             combined = combined[allowed]
 
-        os.makedirs(output_dir, exist_ok=True)
         out_path = os.path.join(output_dir, output_filename)
         combined.to_excel(out_path, index=False)
         self.logger.info(f"RM output written → {out_path}")
         self.logger.info("RM processing completed successfully")
         for col in combined.columns:
-            if col not in ["date_time", "material_id"]:
+            if col not in ["date", "date_time", "material_code"]:
                 combined[col] = pd.to_numeric(combined[col], errors="coerce")
 
         # ── Push to Neon DB ──────────────────────────────────────────────
-        neon_cfg = setting_cfg.get("neondb")
-        if neon_cfg:
-            self.logger.info("Pushing RM data to Neon DB...")
+        neon_cfg = setting_cfg.get("neon_developer")
+        if neon_cfg and neon_cfg.get("url"):
+            self.logger.info("Pushing RM data to developer Neon DB...")
             neon_client = NeonClient(neon_cfg)
             try:
-                material_lookup = neon_client.fetch_material_lookup()
-
                 rm_neon_cfg = rm_cfg.get("neon", {})
                 category_map = rm_neon_cfg.get("category_map", {})
-                conflict_cols = rm_neon_cfg.get("conflict_cols", ["material_id", "date_time"])
+                schema = rm_neon_cfg.get("schema", "offline_feed")
+                conflict_cols = rm_neon_cfg.get("conflict_cols", ["material_code", "date_time"])
+                upsert_mode = rm_neon_cfg.get("upsert_mode", "delete_insert")
+                master_cfg = rm_neon_cfg.get("material_master", {})
+
+                material_codes = neon_client.fetch_material_codes(
+                    schema=master_cfg.get("schema", "plant_master"),
+                    table=master_cfg.get("table", "materials"),
+                    code_column=master_cfg.get("code_column", "material_code"),
+                    active_column=master_cfg.get("active_column", "is_active"),
+                )
+                if not material_codes:
+                    self.logger.warning("No material codes loaded from plant_master.materials")
+
+                table_names = {m["table"] for m in category_map.values() if "table" in m}
+                table_columns = neon_client.fetch_table_columns(schema, table_names)
+                missing_tables = sorted(t for t in table_names if not table_columns.get(t))
+                if missing_tables:
+                    raise RuntimeError(
+                        f"No columns found for RM target tables in schema '{schema}': {missing_tables}"
+                    )
 
                 mapper = RMNeonMapper(
-                    material_lookup, category_map=category_map, logger=self.logger
+                    material_codes=material_codes,
+                    category_map=category_map,
+                    schema=schema,
+                    table_columns=table_columns,
+                    logger=self.logger,
                 )
 
                 for table_name, df in mapper.iter_table_dfs(combined):
@@ -163,11 +185,15 @@ class RMService:
                             df=df,
                             table_name=table_name,
                             conflict_cols=conflict_cols,
+                            upsert_mode=upsert_mode,
                         )
-                        self.logger.info(f"    {table_name}: {rows} rows inserted")
-                    except Exception as e:
-                        self.logger.error(f"    Failed for {table_name}: {e}")
+                        self.logger.info(f"    {table_name}: {rows} rows synced")
+                    except Exception:
+                        self.logger.exception(f"    Failed for {table_name}")
+                        raise
             finally:
                 neon_client.close()
+        else:
+            self.logger.warning("Neon developer config missing or empty; skipping RM DB push")
 
         return combined

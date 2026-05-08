@@ -212,7 +212,7 @@ def main():
         if rm_hm_files:
             RMHMService(
             logger,
-            neon_cfg=cfg["neondb"],   
+            neon_cfg=cfg["neon_developer"],
             write_to_neon=True
         ).process(str(rm_hm_files[0]), cfg, run_dates)
         else:
@@ -250,15 +250,12 @@ def main():
             reverse=True,
         )
 
-        neon_cfg = cfg["neon_dev"]
-
         charge_service = ChargeService(
             ChargeServiceConfig(
-            output_dir="outputs",
-            neon_dev_cfg=cfg["neon_dev"], 
-            neondb_cfg=cfg["neondb"],  
-            charge_yaml_path="src/config/charge.yaml",
-            write_to_neon=True
+                output_dir="outputs",
+                neon_cfg=cfg["neon_developer"],
+                charge_yaml_path="src/config/charge.yaml",
+                write_to_neon=True,
             ),
             logger,
         )

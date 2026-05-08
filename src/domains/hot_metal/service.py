@@ -77,21 +77,24 @@ class HotMetalService:
                 # Convert to numeric safely
                 df[col] = pd.to_numeric(df[col], errors="coerce")
 
-            neon_cfg = setting_cfg.get("neondb")
+            neon_cfg = setting_cfg.get("neon_developer")
 
             if not neon_cfg:
-                self.logger.warning("Neon config missing — skipping DB insert")
+                self.logger.warning("Neon developer config missing — skipping DB insert")
                 continue
+
+            # New target: offline_feed.hot_metal_slag_analysis (date column → date_time)
+            db_df = df.rename(columns={"date": "date_time"})
 
             neon = NeonClient(neon_cfg)
 
             try:
-                neon.insert_dataframe(
-                    df=df,
-                    table_name="hot_metal_chemistry",
-                    conflict_cols=["lab_sample_id", "date"], 
-                    upsert_mode="on_conflict"
+                rows = neon.insert_dataframe(
+                    df=db_df,
+                    table_name="offline_feed.hot_metal_slag_analysis",
+                    conflict_cols=["lab_sample_id", "date_time"],
+                    upsert_mode="delete_insert",
                 )
-                self.logger.info(f"HOT_METAL {run_date} inserted into NeonDB")
+                self.logger.info(f"HOT_METAL {run_date}: {rows} rows synced → offline_feed.hot_metal_slag_analysis")
             finally:
                 neon.close()
