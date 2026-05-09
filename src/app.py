@@ -118,7 +118,7 @@ def main():
     logger = get_logger("offline")
 
     modes = [m.strip().lower() for m in args.mode.split(",") if m.strip()]
-    valid_modes = {"rm", "dpr", "hot_metal", "rm_hm", "charge", "rm_stock"}
+    valid_modes = {"rm", "dpr", "hot_metal", "rm_hm", "charge", "rm_stock", "rm_postgresql", "dpr_postgresql", "hot_metal_postgresql", "rm_hm_postgresql", "charge_postgresql", "rm_stock_postgresql"}
 
     invalid = set(modes) - valid_modes
     if invalid:
@@ -285,6 +285,84 @@ def main():
                 continue
 
             charge_service.run(
+                charge_file=str(matching[0]),
+                run_date_str=run_date,
+            )
+
+    # -------------------------------------------------
+    # RM POSTGRESQL
+    # -------------------------------------------------
+    if "rm_postgresql" in modes:
+        from domains.postgresql.rm.service import RMPostgreSQLService
+        rm_postgresql_service = RMPostgreSQLService(cfg)
+        rm_postgresql_service.process(run_dates)
+
+    # -------------------------------------------------
+    # DPR POSTGRESQL
+    # -------------------------------------------------
+    if "dpr_postgresql" in modes:
+        from domains.postgresql.dpr.service import DPRPostgreSQLService
+        dpr_postgresql_service = DPRPostgreSQLService(cfg)
+        dpr_postgresql_service.process(run_dates)
+
+    # -------------------------------------------------
+    # HOT METAL POSTGRESQL
+    # -------------------------------------------------
+    if "hot_metal_postgresql" in modes:
+        from domains.postgresql.hot_metal.service import HotMetalPostgreSQLService
+        hot_metal_postgresql_service = HotMetalPostgreSQLService(cfg)
+        hot_metal_postgresql_service.process(run_dates)
+
+    # -------------------------------------------------
+    # RM & HM POSTGRESQL
+    # -------------------------------------------------
+    if "rm_hm_postgresql" in modes:
+        from domains.postgresql.rm_hm.service import RMHMPostgreSQLService
+        rm_hm_postgresql_service = RMHMPostgreSQLService(cfg)
+        rm_hm_postgresql_service.process(run_dates)
+
+    # -------------------------------------------------
+    # RM STOCK POSTGRESQL
+    # -------------------------------------------------
+    if "rm_stock_postgresql" in modes:
+        from domains.postgresql.rm_stock.service import RMStockPostgreSQLService
+        rm_stock_postgresql_service = RMStockPostgreSQLService(cfg)
+        rm_stock_postgresql_service.process(run_dates)
+
+    # -------------------------------------------------
+    # CHARGE POSTGRESQL
+    # -------------------------------------------------
+    if "charge_postgresql" in modes:
+        from domains.postgresql.charge.service import ChargePostgreSQLService, ChargePostgreSQLServiceConfig
+
+        charge_postgresql_service = ChargePostgreSQLService(
+            ChargePostgreSQLServiceConfig(
+                output_dir="outputs",
+                postgresql_cfg=cfg["postgresql"],
+                charge_cfg=cfg["charge"],
+                write_to_postgresql=True
+            )
+        )
+
+        for run_date in run_dates:
+            dt = datetime.strptime(run_date, "%d-%b-%Y")
+
+            charge_files = sorted(
+                download_dir.glob(f"CHARGE_AND_DUMP_REPORT_*.xlsx"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+
+            matching = [
+                p for p in charge_files
+                if f"CHARGE_AND_DUMP_REPORT_{dt.day}_{dt.month}_{dt.year}" in p.name
+            ]
+
+            if not matching:
+                logger.error(LogTemplates.failed(f"charge_file_not_found={run_date}"))
+                continue
+
+            charge_postgresql_service.run(
                 charge_file=str(matching[0]),
                 run_date_str=run_date,
             )

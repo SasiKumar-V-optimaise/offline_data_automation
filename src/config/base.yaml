@@ -34,3 +34,6 @@ influxdb:
   online_token: ${INFLUX_ONLINE_TOKEN}
   timestamp_col: date
 
+postgresql:
+  connection_string: ${POSTGRESQL_CONNECTION_STRING}
+
