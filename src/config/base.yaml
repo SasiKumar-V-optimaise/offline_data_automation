@@ -17,6 +17,13 @@ portal_files:
   rm_hm: "RM & HM"
   rm_stock: "RM BULK STOCK"   
 
+portal:
+  mode_keywords:
+    rm: ["bf-02", "bunker"]
+    dpr: ["bf-02", "dpr"]
+    hot_metal: ["bf-02", "hot", "metal"]
+    rm_hm: ["rm", "hm"]
+    rm_stock: ["bulk", "stock"]
 
 influxdb:
   url: https://eu-central-1-1.aws.cloud2.influxdata.com

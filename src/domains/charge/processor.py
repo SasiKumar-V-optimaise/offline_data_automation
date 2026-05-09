@@ -1,84 +1,121 @@
-import logging
-from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Dict, List
-
 import pandas as pd
 
-logger = logging.getLogger(__name__)
 
+class RawChargeProcessor:
+    def process_wide_with_time(self, raw_df, snapshots):
+        raw_df = raw_df.sort_values("DATETIME")
+        snapshots = sorted(snapshots, key=lambda x: x["ts"])
 
-@dataclass
-class ChargeProcessConfig:
-    aggregates: Dict[str, List[str]]     # e.g. {"ore_mt": [...], "flux_mt": [...]}
-    rename_dict: Dict[str, str]          # e.g. {"online_mt": "coke_online_mt"}
+        out = raw_df.copy()
 
+        # initialize material columns
+        for hopper_no in range(1, 20):
+            out[f"hopper_{hopper_no}_material"] = None
 
-class ChargeProcessor:
-    def __init__(self, cfg: ChargeProcessConfig):
-        self.cfg = cfg
+        snap_idx = 0
 
-    def process_files(
+        for i, row in out.iterrows():
+            dt = row["DATETIME"]
+
+            while (
+                snap_idx + 1 < len(snapshots)
+                and snapshots[snap_idx + 1]["ts"] <= dt
+            ):
+                snap_idx += 1
+
+            mapping = snapshots[snap_idx]["mapping"]
+
+            for hopper_no in range(1, 20):
+                out.at[i, f"hopper_{hopper_no}_material"] = mapping.get(hopper_no)
+
+        final = pd.DataFrame()
+        final["Date"] = out["DATETIME"]
+
+        if "CHARGE_NO" in out.columns:
+            final["charge_no"] = out["CHARGE_NO"]
+
+        for hopper_no in range(1, 20):
+            act_col = f"HOPPER_{hopper_no}_ACT"
+            mat_col = f"hopper_{hopper_no}_material"
+            val_col = f"hopper_{hopper_no}_value"
+
+            final[mat_col] = out.get(mat_col)
+            final[val_col] = pd.to_numeric(out.get(act_col), errors="coerce")
+
+        return final
+
+    def to_charge_data_table(
         self,
-        file_frames: List[pd.DataFrame],
-        file_mappings: List[Dict[str, List[str]]],
-        target_date: datetime,
+        wide_df: pd.DataFrame,
+        material_column_map: dict,
+        table_columns: list,
     ) -> pd.DataFrame:
-        start = target_date
-        end = target_date + timedelta(days=1)
 
-        parts: List[pd.DataFrame] = []
+        # -------------------------------------------------
+        # INIT OUTPUT
+        # -------------------------------------------------
+        out = pd.DataFrame()
+        out["date_time"] = pd.to_datetime(wide_df["Date"], errors="coerce")
 
-        for df, mapping in zip(file_frames, file_mappings):
-            if df is None or df.empty:
+        # initialize numeric columns
+        for col in table_columns:
+            if col not in ("date_time", "charge_no"):
+                out[col] = 0.0
+
+        # charge number
+        out["charge_no"] = wide_df.get("charge_no")
+
+        # -------------------------------------------------
+        # NORMALIZE MATERIAL MAP
+        # -------------------------------------------------
+        normalized_map = {
+            str(k).strip().lower(): v
+            for k, v in (material_column_map or {}).items()
+        }
+
+        unmapped = set()
+
+        # -------------------------------------------------
+        # PROCESS EACH HOPPER (OPTIMIZED)
+        # -------------------------------------------------
+        for hopper_no in range(1, 20):
+            mat_col = f"hopper_{hopper_no}_material"
+            val_col = f"hopper_{hopper_no}_value"
+
+            if mat_col not in wide_df.columns or val_col not in wide_df.columns:
                 continue
 
-            df = df.copy()
-            df["DATETIME"] = df["DATETIME"].dt.floor("h") + pd.Timedelta(hours=1)
+            materials = wide_df[mat_col].astype(str).str.strip().str.lower()
+            values = pd.to_numeric(wide_df[val_col], errors="coerce")
 
-            act_cols = [c for c in df.columns if c.startswith("HOPPER_") and c.endswith("_ACT")]
-            if not act_cols:
-                continue
+            for idx in wide_df.index:
+                material = materials.iloc[idx]
+                value_kg = values.iloc[idx]
 
-            hourly = df.groupby("DATETIME")[act_cols].sum().reset_index()
-            hourly = hourly[(hourly["DATETIME"] >= start) & (hourly["DATETIME"] < end)]
-            if hourly.empty:
-                continue
+                if not material or pd.isna(value_kg) or value_kg == 0:
+                    continue
 
-            # hopper -> material MT
-            rows = []
-            for _, r in hourly.iterrows():
-                out = {"DATETIME": r["DATETIME"]}
-                for mat_key, hopper_list in mapping.items():
-                    present = [h for h in hopper_list if h in hourly.columns]
-                    out[mat_key] = (r[present].sum() / 1000.0) if present else 0.0
-                rows.append(out)
+                db_col = normalized_map.get(material)
 
-            parts.append(pd.DataFrame(rows))
+                if not db_col:
+                    unmapped.add(material)
+                    continue
 
-        if not parts:
-            return pd.DataFrame()
+                if db_col not in out.columns:
+                    unmapped.add(f"{material} -> {db_col} (missing column)")
+                    continue
 
-        agg = (
-            pd.concat(parts, ignore_index=True)
-            .groupby("DATETIME", as_index=False)
-            .sum(numeric_only=True)
-        )
+                out.at[idx, db_col] += float(value_kg) / 1000.0  # kg → MT
 
-        # Ensure 24 hours
-        idx = pd.date_range(start, end, freq="1h", inclusive="left")
-        agg = agg.set_index("DATETIME").reindex(idx).fillna(0.0)
-        agg.index.name = "DATETIME"
-        agg = agg.reset_index()
+        # -------------------------------------------------
+        # DEBUG UNMAPPED
+        # -------------------------------------------------
+        if unmapped:
+            print("\n Unmapped charge materials:")
+            for x in sorted(unmapped):
+                print(" -", x)
 
-        # ✅ STEP A: aggregates FIRST (use raw/original keys)
-        for group_name, children in (self.cfg.aggregates or {}).items():
-            cols_present = [c for c in children if c in agg.columns]
-            agg[group_name] = agg[cols_present].sum(axis=1) if cols_present else 0.0
-            print(f"Aggregate '{group_name}' from columns: {cols_present}")
-
-        # ✅ STEP B: rename LAST (final Excel headings)
-        if self.cfg.rename_dict:
-            agg = agg.rename(columns={k: v for k, v in self.cfg.rename_dict.items() if k in agg.columns})
-
-        return agg
+        # -------------------------------------------------
+        # FINAL COLUMN ORDER
+        # -------------------------------------------------
+        return out[table_columns]

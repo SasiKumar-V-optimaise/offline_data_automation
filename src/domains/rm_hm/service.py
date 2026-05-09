@@ -4,6 +4,9 @@ import os
 import pandas as pd
 from datetime import datetime
 from infrastructure.influx_client import InfluxClient
+from core.logging import get_logger, LogTemplates
+
+logger = get_logger(__name__)
 
 OUTPUT_DIR = r"C:\dev\offline_data_automation\output"
 
@@ -29,7 +32,7 @@ class RMHMService:
 
         sheet_name = rm_hm_cfg.get("sheet_name", "SP-02")
 
-        self.logger.info(f"Using RM & HM sheet: {sheet_name}")
+        logger.info(f"START | mode=rm_hm sheet={sheet_name}")
 
         # ----------------------------
         # READ SHEET
@@ -41,7 +44,7 @@ class RMHMService:
         )
 
         if df.empty:
-            self.logger.warning("RM & HM sheet is empty")
+            logger.warning(LogTemplates.skipped("empty_sheet"))
             return None
 
         # ----------------------------

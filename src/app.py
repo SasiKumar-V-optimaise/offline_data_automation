@@ -1,6 +1,7 @@
 # src/app.py
 import argparse
 import logging
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 import re
@@ -8,6 +9,7 @@ import re
 import yaml
 
 from core.config_loader import load_config
+from core.logging import setup_logging, get_logger, LogTemplates
 from infrastructure.selenium_client import SeleniumClient, SeleniumConfig
 from domains.download.service import PortalDownloader, DownloadConfig
 
@@ -107,14 +109,13 @@ def _load_charge_user_cfg(charge_yaml_path: Path) -> dict:
 # MAIN
 # -------------------------------------------------
 def main():
+    start_time = time.time()
     args = parse_args()
     cfg = load_config()
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-    )
-    logger = logging.getLogger("offline")
+    # Setup central logging
+    setup_logging()
+    logger = get_logger("offline")
 
     modes = [m.strip().lower() for m in args.mode.split(",") if m.strip()]
     valid_modes = {"rm", "dpr", "hot_metal", "rm_hm", "charge", "rm_stock"}
@@ -127,15 +128,12 @@ def main():
     # RESOLVE RUN DATES
     # -------------------------------------------------
     run_dates = parse_run_dates(args.rundate, args.today)
-    logger.info(
-        f"Run dates resolved: {run_dates[0]} → {run_dates[-1]} "
-        f"({len(run_dates)} day(s))"
-    )
+    logger.info(LogTemplates.start(args.mode, run_dates[0]))
 
     # -------------------------------------------------
     # DOWNLOAD STEP (ONCE)
     # -------------------------------------------------
-    logger.info("Starting download step")
+    logger.info("START | step=download")
 
     selenium = SeleniumClient(
         SeleniumConfig(default_timeout=int(cfg["download"]["default_timeout"]))
@@ -149,6 +147,7 @@ def main():
             file_station_url=cfg["eml"]["file_station_url"],
             hourly_url=cfg["eml"]["hourly_url"],
             portal_files=cfg["portal_files"],
+            mode_keywords=cfg["portal"].get("mode_keywords", {}),
         ),
         logger,
     )
@@ -170,7 +169,7 @@ def main():
         )
 
 
-        logger.info(f"Download completed. Skipped files: {sorted(skipped)}")
+        logger.info(f"DOWNLOAD | skipped={sorted(skipped)}")
 
     finally:
         selenium.stop()
@@ -225,7 +224,7 @@ def main():
         if rm_hm_files:
             RMHMService(logger).process(str(rm_hm_files[0]), cfg, run_dates)
         else:
-            logger.warning("No RM & HM file found after download.")
+            logger.warning(LogTemplates.skipped("no_rm_hm_file"))
 
     # -------------------------------------------------
     # RM STOCK
@@ -239,7 +238,7 @@ def main():
         )
 
         if not stock_files:
-            logger.warning("No RM STOCK file found after download.")
+            logger.warning(LogTemplates.skipped("no_rm_stock_file"))
         else:
             from domains.rm_stock.service import RMStockService
 
@@ -254,75 +253,44 @@ def main():
     # -------------------------------------------------
 
     if "charge" in modes:
-        charge_files = list(download_dir.glob("CHARGE_AND_DUMP_REPORT_*.xls*"))
+        charge_files = sorted(
+            download_dir.glob(f"CHARGE_AND_DUMP_REPORT_*.xlsx"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
 
-        if not charge_files:
-            logger.warning("No CHARGE files found after download.")
-            return
-
-        # ---------- build date latest-file map ----------
-        charge_map: dict[datetime.date, Path] = {}
-
-        for f in charge_files:
-            m = re.search(r"CHARGE_AND_DUMP_REPORT_(\d{1,2})_(\d{1,2})_(\d{4})", f.name)
-            if not m:
-                continue
-
-            d = datetime(int(m.group(3)), int(m.group(2)), int(m.group(1))).date()
-
-            prev = charge_map.get(d)
-            if not prev or f.stat().st_mtime > prev.stat().st_mtime:
-                charge_map[d] = f   # keep latest only
-
-        charge_yaml_path = Path("src/config/charge.yaml")
-        charge_user_cfg = _load_charge_user_cfg(charge_yaml_path)
+        neon_cfg = cfg["neon_dev"]
 
         charge_service = ChargeService(
             ChargeServiceConfig(
-                charge_yaml_path=str(charge_yaml_path),
-                aggregates=charge_user_cfg.get("aggregates", {}),
-                rename_dict=charge_user_cfg.get("rename_dict", {}),
-                influx_cfg=cfg.get("influxdb", {}),
-            )
+            output_dir="outputs",
+            neon_dev_cfg=cfg["neon_dev"], 
+            neondb_cfg=cfg["neondb"],  
+            charge_cfg=cfg["charge"], 
+            write_to_neon=True
+            ),
+            logger,
         )
 
-        out_dir = Path("output")
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-        # ---------- process per run date ----------
         for run_date in run_dates:
-            run_dt = datetime.strptime(run_date, "%d-%b-%Y").date()
-            prev_dt = run_dt - timedelta(days=1)
+            dt = datetime.strptime(run_date, "%d-%b-%Y")
 
-            file_today = charge_map.get(run_dt)
-            file_yesterday = charge_map.get(prev_dt)
+            matching = [
+                p for p in charge_files
+                if f"CHARGE_AND_DUMP_REPORT_{dt.day}_{dt.month}_{dt.year}" in p.name
+            ]
 
-            if not file_today:
-                logger.error("Charge file not found for %s", run_date)
+            if not matching:
+                logger.error(LogTemplates.failed(f"charge_file_not_found={run_date}"))
                 continue
 
-            logger.info(
-                "Processing CHARGE for %s | today=%s | yesterday=%s",
-                run_date,
-                file_today.name,
-                file_yesterday.name if file_yesterday else "None",
-            )
-
-            df = charge_service.run(
-                file_today=str(file_today),
-                file_yesterday=str(file_yesterday) if file_yesterday else None,
+            charge_service.run(
+                charge_file=str(matching[0]),
                 run_date_str=run_date,
             )
 
-            if df is None or df.empty:
-                logger.warning("No charge data produced for %s", run_date)
-                continue
-
-            out_file = out_dir / f"charge_data_{run_date}.xlsx"
-            df.rename(columns={"DATETIME": "date"}).to_excel(out_file, index=False)
-            logger.info("Charge Excel written → %s", out_file)
-
-    logger.info("Offline data automation completed successfully.")
+    duration = time.time() - start_time
+    logger.info(LogTemplates.success(duration))
 
 
 if __name__ == "__main__":

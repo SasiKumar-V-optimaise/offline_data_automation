@@ -8,6 +8,9 @@ from infrastructure.influx_client import InfluxClient
 
 from domains.rm.reader import RMReader
 from domains.rm.transformer import RMTransformer
+from core.logging import get_logger, LogTemplates
+
+logger = get_logger(__name__)
 
 OUTPUT_DIR = r"C:\dev\offline_data_automation\output"
 
@@ -34,7 +37,7 @@ class RMService:
 
         date_list = [datetime.strptime(d, "%d-%b-%Y").date() for d in run_dates]
 
-        self.logger.info("RM processing started")
+        logger.info(f"START | mode=rm dates={len(date_list)}")
 
         frames = self.reader.read(rm_file, rm_cfg["sheet_config"])
         parts = []
@@ -43,13 +46,13 @@ class RMService:
         # PER-SHEET PROCESSING
         # ------------------------------------------------
         for df, prefix, sheet in frames:
-            self.logger.info(f"→ {sheet}")
+            logger.info(f"SHEET | name={sheet}")
 
             df = self.transformer.normalize_columns(df)
             df = self.transformer.filter_by_date_and_shift(df, date_list, sheet)
 
             if df is None or df.empty:
-                self.logger.warning(f"   SKIPPED: {sheet} (no valid data)")
+                logger.warning(LogTemplates.skipped(f"sheet={sheet}"))
                 continue
 
             if "ONLINE/OFFLINE" in df.columns:
@@ -70,10 +73,10 @@ class RMService:
             )
 
             parts.append(df)
-            self.logger.info(f"   OK: {sheet}")
+            logger.info(f"OK | sheet={sheet}")
 
         if not parts:
-            self.logger.error("No RM data produced — exiting")
+            logger.error(LogTemplates.failed("no_data"))
             return pd.DataFrame()
 
         # ------------------------------------------------
@@ -95,7 +98,9 @@ class RMService:
         # ------------------------------------------------
         if rename_map:
             combined = combined.rename(columns=rename_map)
-            self.logger.info("RM fields renamed using rm.yaml mapping")
+            logger.info("CONFIG | fields_renamed")
+        
+        combined.to_excel(os.path.join(OUTPUT_DIR, "rm_combined_raw.xlsx"), index=False)  # Debug output
 
         # ------------------------------------------------
         # FIX SHIFT ORDER (C → A → B)
@@ -133,29 +138,26 @@ class RMService:
         # WRITE OUTPUT
         # ------------------------------------------------
         if rename_map:
-            allowed_columns = list(rename_map.values()) + ["date"]
+            allowed_columns = list(rename_map.values())
 
             # keep only existing columns
             allowed_columns = [c for c in allowed_columns if c in combined.columns]
 
             combined = combined[allowed_columns]
 
-            self.logger.info(
-                f"Final RM fields filtered: keeping only {len(allowed_columns)} columns"
-            )
+            logger.info(f"CONFIG | final_columns={len(allowed_columns)}")
         os.makedirs(OUTPUT_DIR, exist_ok=True)
         out_path = os.path.join(OUTPUT_DIR, "rm_processed_data.xlsx")
         combined.to_excel(out_path, index=False)
 
-        self.logger.info(f"RM output written → {out_path}")
-        self.logger.info("RM processing completed successfully")
+        logger.info(f"OUTPUT | file={out_path}")
         # ------------------------------------------------
         # PUSH TO INFLUXDB
         # ------------------------------------------------
         influx_cfg = setting_cfg.get("influxdb")
 
         if not influx_cfg:
-            self.logger.warning("InfluxDB config missing — skipping Influx push")
+            logger.warning(LogTemplates.skipped("no_influx_config"))
         else:
             try:
                 influx = InfluxClient(influx_cfg)
@@ -168,10 +170,10 @@ class RMService:
                 )
 
                 influx.close()
-                self.logger.info("RM data pushed to InfluxDB successfully")
+                logger.info(LogTemplates.db_inserted(len(combined)))
 
             except Exception as exc:
-                self.logger.error(f"Failed to push RM data to InfluxDB: {exc}")
+                logger.error(LogTemplates.failed(f"influx_error={exc}"))
 
 
         return combined
