@@ -26,6 +26,17 @@ class RMTransformer:
         df.columns = df.columns.str.strip().str.replace(" ", "_").str.upper()
         return df
 
+    def _normalize_shift_value(self, value):
+        if pd.isna(value):
+            return pd.NA
+
+        text = str(value).strip().upper()
+        if not text or text in {"NAN", "NONE", "NAT"}:
+            return pd.NA
+
+        first_char = text[0]
+        return first_char if first_char in self.VALID_SHIFTS else pd.NA
+
     def filter_invalid_markers(self, df, invalid_markers=None):
         markers_upper = (
             {str(m).strip().upper() for m in invalid_markers}
@@ -149,10 +160,14 @@ class RMTransformer:
         if "SHIFT" not in df.columns:
             return pd.DataFrame()
 
-        df["SHIFT"] = df["SHIFT"].astype(str).str.strip().str.upper()
-        df["SHIFT"] = df["SHIFT"].apply(
-            lambda x: x[0] if x and x[0] in self.VALID_SHIFTS else pd.NA
-        )
+        raw_shift = df["SHIFT"]
+        df["SHIFT"] = raw_shift.map(self._normalize_shift_value)
+
+        invalid_shift_count = int(raw_shift.notna().sum() - df["SHIFT"].notna().sum())
+        if invalid_shift_count > 0:
+            self.logger.warning(
+                f"  Ignored {invalid_shift_count} rows with invalid SHIFT values in {sheet_name}"
+            )
 
         return df[df["DATE"].isin(date_list) & df["SHIFT"].notna()]
 
