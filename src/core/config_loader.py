@@ -60,6 +60,7 @@ def load_config(
     base_path: str = "src/config/base.yaml",
     secrets_path: str = "src/config/secrets.yaml",
     rm_path: str = "src/config/rm.yaml",
+    fines_analysis_path: str = "src/config/fines_analysis.yaml",
     dpr_path: str = "src/config/dpr.yaml",
     hot_metal_path: str = "src/config/hot_metal.yaml",
     rm_hm_path: str = "src/config/rm_hm.yaml",
@@ -70,6 +71,7 @@ def load_config(
     base = load_yaml(base_path)
     secrets = load_yaml(secrets_path)
     rm_file_cfg = load_yaml(rm_path)
+    fines_analysis_file_cfg = load_yaml(fines_analysis_path)
     dpr_file_cfg = load_yaml(dpr_path)
     hm_file_cfg = load_yaml(hot_metal_path)
     rm_hm_file_cfg = load_yaml(rm_hm_path)
@@ -81,6 +83,15 @@ def load_config(
     # RM CONFIG
     # -----------------------------
     merged["rm"] = rm_file_cfg["rm"] if "rm" in rm_file_cfg else rm_file_cfg
+
+    # -----------------------------
+    # FINES ANALYSIS CONFIG
+    # -----------------------------
+    merged["fines_analysis"] = (
+        fines_analysis_file_cfg["fines_analysis"]
+        if "fines_analysis" in fines_analysis_file_cfg
+        else fines_analysis_file_cfg
+    )
 
     # -----------------------------
     # DPR CONFIG

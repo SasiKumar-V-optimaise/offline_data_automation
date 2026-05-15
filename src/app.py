@@ -1,6 +1,5 @@
 # src/app.py
 import argparse
-import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 import re
@@ -8,10 +7,12 @@ import re
 import yaml
 
 from core.config_loader import load_config
+from core.logging import configure_logging
 from infrastructure.selenium_client import SeleniumClient, SeleniumConfig
 from domains.download.service import PortalDownloader, DownloadConfig
 
 from domains.rm.service import RMService
+from domains.fines_analysis.service import FinesAnalysisService
 from domains.dpr.service import DPRService
 from domains.hot_metal.service import HotMetalService
 from domains.rm_hm.service import RMHMService
@@ -27,7 +28,7 @@ def parse_args():
     parser.add_argument(
         "--mode",
         required=True,
-        help="Comma separated modes. Supported: rm, dpr, hot_metal, rm_hm, charge",
+        help="Comma separated modes. Supported: rm, fines_analysis, dpr, hot_metal, rm_hm, charge",
     )
 
     parser.add_argument(
@@ -97,14 +98,19 @@ def main():
     args = parse_args()
     cfg = load_config()
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
+    logging_cfg = cfg.get("logging") or {}
+    logger = configure_logging(
+        level=logging_cfg.get("level", "INFO"),
+        log_dir=logging_cfg.get("dir", "output/logs"),
     )
-    logger = logging.getLogger("offline")
 
-    modes = [m.strip().lower() for m in args.mode.split(",") if m.strip()]
-    valid_modes = {"rm", "dpr", "hot_metal", "rm_hm", "charge", "rm_stock"}
+    mode_aliases = {"fines": "fines_analysis"}
+    modes = [
+        mode_aliases.get(m.strip().lower(), m.strip().lower())
+        for m in args.mode.split(",")
+        if m.strip()
+    ]
+    valid_modes = {"rm", "fines_analysis", "dpr", "hot_metal", "rm_hm", "charge", "rm_stock"}
 
     invalid = set(modes) - valid_modes
     if invalid:
@@ -175,6 +181,20 @@ def main():
         )
         if rm_files:
             RMService(logger).process(str(rm_files[0]), cfg, run_dates)
+
+    # -------------------------------------------------
+    # FINES ANALYSIS
+    # -------------------------------------------------
+    if "fines_analysis" in modes:
+        fines_files = sorted(
+            download_dir.glob("*BUNKER*.xlsx"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        if fines_files:
+            FinesAnalysisService(logger).process(str(fines_files[0]), cfg, run_dates)
+        else:
+            logger.warning("No BUNKER file found for fines analysis.")
 
     # -------------------------------------------------
     # DPR

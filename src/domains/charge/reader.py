@@ -3,14 +3,20 @@ import re
 from datetime import datetime, timedelta
 import pandas as pd
 
+from core.logging import log_file_read
+
 
 class ChargeExcelReader:
-    def __init__(self, sheet_hint: str = "SH"):
+    def __init__(self, sheet_hint: str = "SH", logger=None):
         self.sheet_hint = sheet_hint
+        self.logger = logger
 
     def read_target_day_raw(self, file_path: str, target_date: datetime) -> pd.DataFrame:
         if not file_path or not os.path.exists(file_path):
             raise FileNotFoundError(f"Charge file not found: {file_path}")
+
+        if self.logger:
+            log_file_read(self.logger, file_path, domain="CHARGE")
 
         sheet = self._detect_sheet(file_path)
         header_row = self._detect_header_row(file_path, sheet)

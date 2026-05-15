@@ -109,11 +109,10 @@ class RMStockService:
 
         self.logger.info(f"Excel written → {output_file}")
 
-        # OPTIONAL: write to Influx
         self._write_to_influx(final_df, cfg)
 
     # -------------------------------------------------
-    # OPTIONAL: INFLUX WRITER
+    #  INFLUX WRITER
     # -------------------------------------------------
     def _write_to_influx(self, df, cfg):
         influx_cfg = cfg.get("influxdb")
@@ -128,7 +127,7 @@ class RMStockService:
             client.write_dataframe(
                 df=df,
                 measurement="rm_stock",
-                tag_keys=[],  # optional (no tag columns in pivot format)
+                tag_keys=[],  
             )
             self.logger.info("Data successfully written to InfluxDB")
 

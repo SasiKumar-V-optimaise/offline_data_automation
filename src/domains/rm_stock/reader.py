@@ -1,5 +1,7 @@
 import pandas as pd
 
+from core.logging import log_file_read
+
 
 class RMStockReader:
     def __init__(self, logger):
@@ -12,6 +14,7 @@ class RMStockReader:
     def read(self, file_path: str, run_date: str) -> tuple[pd.DataFrame, pd.Timestamp]:
         sheet_name = self._get_sheet_name(run_date)
 
+        log_file_read(self.logger, file_path, domain="RM_STOCK", sheet=sheet_name)
         self.logger.info(f"Reading sheet: {sheet_name}")
 
         try:

@@ -3,6 +3,8 @@
 import pandas as pd
 from typing import Dict, Any, List, Tuple
 
+from core.logging import log_file_read
+
 
 class RMReader:
     def __init__(self, logger):
@@ -16,6 +18,7 @@ class RMReader:
         """
         Returns list of (df, prefix, sheet_name)
         """
+        log_file_read(self.logger, file_path, domain="RM")
         xls = pd.ExcelFile(file_path)
         frames = []
 

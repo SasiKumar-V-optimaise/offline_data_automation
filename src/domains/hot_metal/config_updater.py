@@ -3,6 +3,8 @@
 from datetime import datetime
 from openpyxl import load_workbook
 
+from core.logging import log_file_read
+
 
 class HotMetalConfigUpdater:
     def __init__(self, logger):
@@ -12,6 +14,7 @@ class HotMetalConfigUpdater:
         mon = datetime.strptime(run_date, "%d-%b-%Y").strftime("%b").upper()
         yy = datetime.strptime(run_date, "%d-%b-%Y").strftime("%y")
 
+        log_file_read(self.logger, file_path, domain="HOT_METAL_CONFIG")
         wb = load_workbook(file_path, read_only=True)
         try:
             target = next(s for s in wb.sheetnames if mon in s.upper() and yy in s)

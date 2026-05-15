@@ -3,6 +3,8 @@
 import os
 import pandas as pd
 from datetime import datetime
+from core.logging import log_file_read
+from infrastructure.influx_client import InfluxClient
 from infrastructure.neon_client import NeonClient
 
 OUTPUT_DIR = "output/rm_hm"
@@ -17,6 +19,35 @@ class RMHMService:
         self.logger = logger
         self.neon_cfg = neon_cfg
         self.write_to_neon = write_to_neon
+
+    def _write_to_influx(self, df: pd.DataFrame, setting_cfg: dict) -> None:
+        influx_cfg = dict(setting_cfg.get("influxdb") or {})
+        token = os.getenv("INFLUX_TOKEN")
+        if token:
+            influx_cfg["token"] = token.strip().strip("\"'")
+
+        if not all(influx_cfg.get(k) for k in ("url", "token", "org", "bucket")):
+            self.logger.warning("InfluxDB config missing or incomplete; skipping RM_HM Influx push")
+            return
+
+        fields = setting_cfg.get("rm_hm_fields", {})
+        cols = list(dict.fromkeys(fields.values()))
+        influx_df = df.rename(columns={"date_time": "date"})
+        influx_df = influx_df[[c for c in cols if c in influx_df.columns]].copy()
+
+        if influx_df.empty or "date" not in influx_df.columns:
+            self.logger.warning("RM_HM Influx fields/date missing; skipping Influx push")
+            return
+
+        measurement = setting_cfg.get("rm_hm", {}).get("influx", {}).get("measurement", "rm_hm")
+        client = InfluxClient(influx_cfg)
+        try:
+            client.write_dataframe(df=influx_df, measurement=measurement)
+            self.logger.info(f"RM_HM pushed to InfluxDB measurement: {measurement}")
+        except Exception:
+            self.logger.exception("RM_HM InfluxDB push failed")
+        finally:
+            client.close()
 
     def process(
         self,
@@ -35,6 +66,7 @@ class RMHMService:
         # ----------------------------
         # READ SHEET
         # ----------------------------
+        log_file_read(self.logger, rm_hm_file, domain="RM_HM", sheet=sheet_name)
         df = pd.read_excel(
             rm_hm_file,
             sheet_name=sheet_name,
@@ -148,6 +180,7 @@ class RMHMService:
         # WRITE TO NEON DB
         # ----------------------------
         if self.write_to_neon and self.neon_cfg:
+            client = None
             try:
                 client = NeonClient(self.neon_cfg)
 
@@ -160,9 +193,13 @@ class RMHMService:
 
                 self.logger.info(f"Inserted {rows} rows → offline_feed.raw_material_strength_analysis")
 
-                client.close()
+                if rows > 0:
+                    self._write_to_influx(filtered, setting_cfg)
 
             except Exception as e:
                 self.logger.error(f"Failed to write RM_HM data to Neon: {e}")
+            finally:
+                if client:
+                    client.close()
 
         return filtered

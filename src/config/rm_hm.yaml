@@ -1,3 +1,7 @@
+rm_hm:
+  influx:
+    measurement: rm_hm_data
+
 rm_hm_fields:
   Date: date
   TI: ti

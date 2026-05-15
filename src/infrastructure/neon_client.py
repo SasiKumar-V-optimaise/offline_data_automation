@@ -41,6 +41,31 @@ class NeonClient:
             return value.item()
         return value
 
+    @staticmethod
+    def _null_non_positive_payload_values(
+        df: pd.DataFrame,
+        exclude_cols: set[str],
+    ) -> pd.DataFrame:
+        """
+        DB payload rule: values <= 0 are stored as NULL.
+
+        Conflict/key columns are excluded so row identity is preserved.
+        """
+        for col in (c for c in df.columns if c not in exclude_cols):
+            series = df[col]
+            if (
+                pd.api.types.is_bool_dtype(series)
+                or pd.api.types.is_datetime64_any_dtype(series)
+            ):
+                continue
+
+            numeric = pd.to_numeric(series, errors="coerce")
+            mask = numeric.notna() & numeric.le(0)
+            if mask.any():
+                df.loc[mask, col] = pd.NA
+
+        return df
+
     # ------------------------------------------------------------------
     def insert_dataframe(
         self,
@@ -81,6 +106,11 @@ class NeonClient:
             df = df.dropna(subset=payload_cols, how="all")
         if df.empty:
             return 0
+
+        df = self._null_non_positive_payload_values(
+            df=df,
+            exclude_cols=set(conflict_cols),
+        )
 
         cols = list(df.columns)
         table_sql = self._quote_qualified_name(table_name)

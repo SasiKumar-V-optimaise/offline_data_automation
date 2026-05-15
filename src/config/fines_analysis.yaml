@@ -1,0 +1,132 @@
+fines_analysis:
+  output:
+    dir: output/fines_analysis
+    filename: material_fines_analysis.xlsx
+
+  run_date_format: "%d-%b-%Y"
+
+  shifts:
+    time: {A: "07:00", B: "15:00", C: "23:00"}
+
+  invalid_markers: [STOP, "N/A", NA, n/a, na, "-", "", NR, S/D, "SHUT DOWN", "#DIV/0!"]
+
+  neon:
+    schema: offline_feed
+    table: material_fines_analysis
+    upsert_mode: delete_insert
+    conflict_cols: [material_code, date_time]
+    material_master:
+      schema: plant_master
+      table: materials
+      code_column: material_code
+      active_column: is_active
+
+  sheet_config:
+    COKE:
+      material_code: coke_1
+      columns: A:R
+      header_row: 4
+      sheet_name: BF-COKE-MPS
+      default_time: "00:00"
+
+    NUT_COKE:
+      material_code: nut_coke_1
+      columns: A:S
+      header_row: 5
+      sheet_name: NUT COKE
+
+    DOLOMITE:
+      material_code: flux_1
+      columns: B:O
+      header_row: 5
+      sheet_name: DOLOMITE
+
+    QUARTZ:
+      material_code: flux_2
+      columns: A:L
+      header_row: 5
+      sheet_name: QUARTZ
+
+    LIMESTONE:
+      material_code: flux_3
+      columns: B:O
+      header_row: 5
+      sheet_name: LIMESTONE
+
+    SINTER:
+      material_code: sinter_3
+      columns: A:R
+      header_row: 4
+      sheet_name: BF-SINTER-SKIP-SIZE
+
+    NMDC_DONOMALAI:
+      material_code: ore_1
+      columns: A:AA
+      header_row: 2
+      sheet_name: NMDC DONOMALAI
+
+    LLOYDS_CLO:
+      material_code: ore_2
+      columns: A:AA
+      header_row: 4
+      sheet_name: LLOYDS CLO
+
+    GEOMIN_CLO:
+      material_code: ore_3
+      columns: B:AB
+      header_row: 4
+      sheet_name: GEOMIN CLO
+
+    JRS_VENTURES:
+      material_code: ore_4
+      columns: A:AA
+      header_row: 3
+      sheet_name: "JRS VENTURES "
+
+    NMDC_ROM:
+      material_code: ore_5
+      columns: A:Z
+      header_row: 2
+      sheet_name: NMDC ROM
+
+    LLOYDS_OVERSIZE_CLO:
+      material_code: ore_6
+      columns: A:AA
+      header_row: 4
+      sheet_name: LLOYDS FINES OVER SIZE
+
+    BACHELI_FINES_OVERSIZE:
+      material_code: ore_7
+      columns: A:AA
+      header_row: 4
+      sheet_name: "BACHELI FINES OVER SIZE "
+
+    ACORE_IND:
+      material_code: ore_8
+      columns: A:AB
+      header_row: 3
+      sheet_name: ACORE IND.PVT LTD
+
+    JAYASWAL_NECO:
+      material_code: ore_9
+      columns: B:AB
+      header_row: 2
+      sheet_name: JAYASWAL NECO
+
+    GOMTI:
+      material_code: ore_10
+      columns: A:AA
+      header_row: 3
+      sheet_name: GOMTI
+
+    DONIMALAI_OVERSIZE_RTRN:
+      material_code: ore_11
+      columns: A:AA
+      header_row: 2
+      sheet_name: "DONIMALAI OVER SIZE RTRN "
+
+    LLOYDS_PELLET:
+      material_code: pellet_1
+      columns: A:AA
+      header_row: 2
+      sheet_name: LLOYDS-PELLET

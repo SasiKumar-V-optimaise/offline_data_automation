@@ -2,6 +2,7 @@
 
 import os
 import pandas as pd
+from infrastructure.influx_client import InfluxClient
 from infrastructure.neon_client import NeonClient
 
 from domains.hot_metal.reader import HotMetalReader
@@ -19,9 +20,38 @@ class HotMetalService:
         self.reader = HotMetalReader(logger)
         self.updater = HotMetalConfigUpdater(logger)
 
+    def _write_to_influx(self, df: pd.DataFrame, setting_cfg: dict, hm_cfg: dict) -> None:
+        influx_cfg = dict(setting_cfg.get("influxdb") or {})
+        token = os.getenv("INFLUX_TOKEN")
+        if token:
+            influx_cfg["token"] = token.strip().strip("\"'")
+
+        if not all(influx_cfg.get(k) for k in ("url", "token", "org", "bucket")):
+            self.logger.warning("InfluxDB config missing or incomplete; skipping HOT_METAL Influx push")
+            return
+
+        cols = list(dict.fromkeys(hm_cfg.get("hot_metal_fields", {}).values()))
+        influx_df = df[[c for c in cols if c in df.columns]].copy()
+        if influx_df.empty or "date" not in influx_df.columns:
+            self.logger.warning("HOT_METAL Influx fields/date missing; skipping Influx push")
+            return
+
+        measurement = hm_cfg.get("influx", {}).get("measurement", "hot_metal")
+        client = InfluxClient(influx_cfg)
+        try:
+            client.write_dataframe(
+                df=influx_df,
+                measurement=measurement,
+                tag_keys=["lab_sample_id", "cast_no_ladle_spec"],
+            )
+            self.logger.info(f"HOT_METAL pushed to InfluxDB measurement: {measurement}")
+        except Exception:
+            self.logger.exception("HOT_METAL InfluxDB push failed")
+        finally:
+            client.close()
+
     def process(self, hm_file: str, setting_cfg: dict, run_dates):
         hm_cfg = setting_cfg["hot_metal"]
-        influx_cfg = setting_cfg.get("influxdb")
         field_map = hm_cfg.get("hot_metal_fields", {})
 
         for run_date in run_dates:
@@ -98,3 +128,6 @@ class HotMetalService:
                 self.logger.info(f"HOT_METAL {run_date}: {rows} rows synced → offline_feed.hot_metal_slag_analysis")
             finally:
                 neon.close()
+
+            if rows > 0:
+                self._write_to_influx(df, setting_cfg, hm_cfg)

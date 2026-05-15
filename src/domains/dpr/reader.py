@@ -11,6 +11,7 @@ import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string
 
+from core.logging import log_file_read
 from domains.dpr.config_updater import DPRConfigUpdater
 
 
@@ -88,11 +89,12 @@ class DPRReader:
     ) -> Optional[pd.DataFrame]:
         run_dt = datetime.strptime(run_date, "%d-%b-%Y").date()
 
+        log_file_read(self.logger, file_path, domain="DPR")
         wb = load_workbook(file_path, data_only=True)
         updater = DPRConfigUpdater(self.logger)
         target_sheet = updater.select_sheet_for_run_date(wb, run_date)
 
-        self.logger.info(f"Reading DPR Excel: {file_path} / sheet: {target_sheet}")
+        self.logger.info(f"Reading DPR sheet: {target_sheet}")
 
         if target_sheet not in wb.sheetnames:
             self.logger.warning(f"Sheet '{target_sheet}' not found; skipping")

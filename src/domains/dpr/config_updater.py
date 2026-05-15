@@ -8,6 +8,8 @@ from typing import Dict, Any, Tuple, Optional
 from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string
 
+from core.logging import log_file_read
+
 
 _SHEET_RE = re.compile(r"^([A-Za-z]+)\s*'\s*(\d{2})\s*$", re.IGNORECASE)
 
@@ -154,6 +156,7 @@ class DPRConfigUpdater:
 
     def update_rows_in_config(self, excel_path: str, dpr_cfg: Dict[str, Any], run_date: str) -> Dict[str, Any]:
 
+        log_file_read(self.logger, excel_path, domain="DPR_CONFIG")
         wb = load_workbook(excel_path, data_only=True)
         target_sheet = self.select_sheet_for_run_date(wb, run_date)
         ws = wb[target_sheet]

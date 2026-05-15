@@ -11,6 +11,7 @@ import pandas as pd
 
 from domains.dpr.reader import DPRReader
 from domains.dpr.config_updater import DPRConfigUpdater
+from infrastructure.influx_client import InfluxClient
 from infrastructure.neon_client import NeonClient
 output_dir = "output/dpr"
 
@@ -21,6 +22,60 @@ class DPRService:
     def __post_init__(self):
         self.reader = DPRReader(self.logger)
         self.updater = DPRConfigUpdater(self.logger)
+
+    def _to_influx_frame(self, df: pd.DataFrame, dpr_cfg: Dict[str, Any]) -> pd.DataFrame:
+        influx_fields = dpr_cfg.get("dpr_fields", {})
+        source_to_neon = dpr_cfg.get("fields", {})
+        rename = {}
+        for source, influx_col in influx_fields.items():
+            neon_col = source_to_neon.get(source)
+            if neon_col in df.columns:
+                rename[neon_col] = influx_col
+            elif influx_col in df.columns:
+                rename[influx_col] = influx_col
+            elif source in df.columns:
+                rename[source] = influx_col
+
+        if not rename:
+            return pd.DataFrame()
+
+        out = df[list(dict.fromkeys(rename))].rename(columns=rename)
+        return out.loc[:, ~out.columns.duplicated()].copy()
+
+    def _write_to_influx(
+        self,
+        df: pd.DataFrame,
+        dpr_cfg: Dict[str, Any],
+        setting_cfg: Dict[str, Any],
+    ) -> None:
+        influx_cfg = dict(setting_cfg.get("influxdb") or {})
+        token = os.getenv("INFLUX_TOKEN")
+        if token:
+            influx_cfg["token"] = token.strip().strip("\"'")
+
+        required = ("url", "token", "org", "bucket")
+        if not all(influx_cfg.get(k) for k in required):
+            self.logger.warning("InfluxDB config missing or incomplete; skipping DPR Influx push")
+            return
+
+        dpr_influx = dpr_cfg.get("influx", {})
+        influx_cfg["bucket"] = dpr_influx.get("bucket", influx_cfg["bucket"])
+        measurement = dpr_influx.get("measurement", "dpr")
+        influx_df = self._to_influx_frame(df, dpr_cfg)
+
+        if influx_df.empty or "date" not in influx_df.columns:
+            self.logger.warning("DPR Influx fields/date missing; skipping Influx push")
+            return
+
+        client = InfluxClient(influx_cfg)
+        try:
+            client.write_dataframe(df=influx_df, measurement=measurement)
+            self.logger.info(f"DPR pushed to InfluxDB measurement: {measurement}")
+        except Exception:
+            self.logger.exception("DPR InfluxDB push failed")
+            raise
+        finally:
+            client.close()
 
     def process(
         self,
@@ -88,6 +143,7 @@ class DPRService:
         self.logger.info(f"DPR output written → {out_path}")
 
         neon_cfg = setting_cfg.get("neon_developer")
+        neon_written = False
         if neon_cfg and neon_cfg.get("url"):
             dpr_neon = dpr_cfg.get("neon", {})
             table = dpr_neon.get("table", "dpr_data")
@@ -108,6 +164,7 @@ class DPRService:
                     upsert_mode=upsert_mode,
                 )
                 self.logger.info(f"DPR pushed to NeonDB: {rows} rows upserted")
+                neon_written = rows > 0
             except Exception:
                 self.logger.exception("DPR NeonDB push failed")
                 raise
@@ -115,5 +172,8 @@ class DPRService:
                 neon.close()
         else:
             self.logger.warning("Neon developer config missing or empty; skipping DPR DB push")
+
+        if neon_written:
+            self._write_to_influx(combined, dpr_cfg, setting_cfg)
 
         return combined

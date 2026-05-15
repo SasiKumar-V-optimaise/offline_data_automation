@@ -6,12 +6,15 @@ import re
 from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string
 
+from core.logging import log_file_read
+
 
 class HotMetalReader:
     def __init__(self, logger):
         self.logger = logger
 
     def read_for_dates(self, file_path: str, run_dates, hm_cfg: dict) -> pd.DataFrame:
+        log_file_read(self.logger, file_path, domain="HOT_METAL")
         hm = hm_cfg["hot_metal_config"]
         sheet_key = hm["sheet_name"]
         block = hm["sheets"][sheet_key]

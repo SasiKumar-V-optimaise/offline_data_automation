@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 import time
 from dataclasses import dataclass
@@ -12,9 +11,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 # -------------------------------------------------
@@ -85,7 +81,36 @@ class PortalDownloader:
     # -------------------------------------------------
     # WAIT FOR DOWNLOAD
     # -------------------------------------------------
-    def _wait_for_download(self, started_at: float, expected_name: str, timeout: int = 240) -> bool:
+    def _download_name_matches(
+        self,
+        filename: str,
+        expected_name: str,
+        keywords: List[str] | None = None,
+    ) -> bool:
+        filename_norm = self._normalize_name(filename)
+        expected_norm = self._normalize_name(expected_name)
+
+        if expected_norm and expected_norm in filename_norm:
+            return True
+
+        expected_stem = os.path.splitext(expected_norm)[0]
+        filename_stem = os.path.splitext(filename_norm)[0]
+        if expected_stem and expected_stem in filename_stem:
+            return True
+
+        if keywords:
+            keyword_norms = [self._normalize_name(k) for k in keywords]
+            return all(k in filename_norm for k in keyword_norms)
+
+        return False
+
+    def _wait_for_download(
+        self,
+        started_at: float,
+        expected_name: str,
+        keywords: List[str] | None = None,
+        timeout: int = 240,
+    ) -> bool:
         end = time.time() + timeout
         d = os.path.expanduser(self.cfg.download_dir)
 
@@ -98,8 +123,11 @@ class PortalDownloader:
                     continue
 
                 # must match expected file
-                if expected_name.lower() in f.lower():
+                if self._download_name_matches(f, expected_name, keywords):
                     p = os.path.join(d, f)
+
+                    if os.path.getmtime(p) < started_at - 2:
+                        continue
 
                     # ensure file is stable (size not changing)
                     size1 = os.path.getsize(p)
@@ -209,7 +237,7 @@ class PortalDownloader:
         )
         ActionChains(self.sc.driver).double_click(target["el"]).perform()
 
-        if not self._wait_for_download(start, name):
+        if not self._wait_for_download(start, name, keywords):
             self.logger.error("Download failed")
             return "failed"
 
@@ -253,7 +281,6 @@ class PortalDownloader:
             )
         except Exception:
             self.logger.error("Could not locate scroll panel.")
-            self.sc.stop()
             return {"charge_and_dump"}
 
         candidates = set()
@@ -320,7 +347,6 @@ class PortalDownloader:
             self.logger.warning("Charge file not found after scrolling.")
             skipped.add("charge_and_dump")
 
-        self.sc.stop()
         return skipped
 
     # -------------------------------------------------
@@ -329,39 +355,50 @@ class PortalDownloader:
     def download(self, modes: list[str], run_dates: list[str], is_today_mode: bool) -> Set[str]:
         skipped = set()
 
-        mode_keywords = {
-            "rm": ["bf-02", "bunker"],
-            "dpr": ["bf-02", "dpr"],
-            "hot_metal": ["bf-02", "hot", "metal"],
-            "rm_hm": ["rm", "hm"],
-            "rm_stock": ["bulk", "stock"],
-        }
+        try:
+            mode_keywords = {
+                "rm": ["bf-02", "bunker"],
+                "fines_analysis": ["bf-02", "bunker"],
+                "dpr": ["bf-02", "dpr"],
+                "hot_metal": ["bf-02", "hot", "metal"],
+                "rm_hm": ["rm", "hm"],
+                "rm_stock": ["bulk", "stock"],
+            }
 
-        for m in modes:
-            if m == "charge":
-                continue
+            keyword_results = {}
+            for m in modes:
+                if m == "charge":
+                    continue
 
-            keywords = mode_keywords.get(m)
-            if not keywords:
-                continue
+                keywords = mode_keywords.get(m)
+                if not keywords:
+                    continue
 
-            result = self._safe_download(self.cfg.file_station_url, keywords)
+                keyword_key = tuple(keywords)
+                if keyword_key in keyword_results:
+                    result = keyword_results[keyword_key]
+                    self.logger.info(f"{m} uses the same portal file as an earlier mode")
+                else:
+                    result = self._safe_download(self.cfg.file_station_url, keywords)
+                    keyword_results[keyword_key] = result
 
-            if result == "failed":
-                skipped.add(m)
-            elif result == "skipped":
-                self.logger.info(f"{m} skipped (no update)")
+                if result == "failed":
+                    skipped.add(m)
+                elif result == "skipped":
+                    self.logger.info(f"{m} skipped (no update)")
 
-        # ---------------- CHARGE ----------------
-        if "charge" in modes:
-            charge_dates = (
-                [datetime.today().strftime("%d-%b-%Y")]
-                if is_today_mode
-                else run_dates
-            )
-            skipped |= self._scroll_and_download_charge(
-                self.cfg.hourly_url,
-                charge_dates,
-            )
+            # ---------------- CHARGE ----------------
+            if "charge" in modes:
+                charge_dates = (
+                    [datetime.today().strftime("%d-%b-%Y")]
+                    if is_today_mode
+                    else run_dates
+                )
+                skipped |= self._scroll_and_download_charge(
+                    self.cfg.hourly_url,
+                    charge_dates,
+                )
 
-        return skipped
+            return skipped
+        finally:
+            self.sc.stop()

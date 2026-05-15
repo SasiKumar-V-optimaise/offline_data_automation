@@ -3,6 +3,10 @@ download:
   metadata_path: "downloaded_metadata.json"   # keep same filename (easy migration)
   default_timeout: 180
 
+logging:
+  level: INFO
+  dir: output/logs
+
 eml:
   login_url: "https://ithelpdesk-ugml.sg4.quickconnect.to/"
   file_station_url: "https://ithelpdesk-ugml.sg4.quickconnect.to/?launchApp=SYNO.SDS.App.FileStation3.Instance&SynoToken=laNlkmozfCC0g"
@@ -11,7 +15,8 @@ eml:
 # This maps your CLI modes -> the visible file names inside portal.
 # Matches your existing mode_map. :contentReference[oaicite:4]{index=4}
 portal_files:
-  rm: "01E BF-02 BUNKER  2026-27.xlsx"
+  rm: "12 BF-02 BUNKER  2026-27.xlsx"
+  fines_analysis: "12 BF-02 BUNKER  2026-27.xlsx"
   dpr: "BF-02 DPR"
   hot_metal: "06 BF-02- HOT METAL, SLAG & GAS"
   rm_hm: "RM & HM"
@@ -21,7 +26,7 @@ portal_files:
 influxdb:
   url: https://eu-central-1-1.aws.cloud2.influxdata.com
   org: Blast Furnace, Evonith
-  bucket: "Test"
+  bucket: "bf2_evonith_offline_utc"
   online_bucket: "bf2_evonith_raw"
   token: ${INFLUX_TOKEN}       
   online_token: ${INFLUX_ONLINE_TOKEN}

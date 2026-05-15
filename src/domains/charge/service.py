@@ -25,7 +25,7 @@ class ChargeService:
     def __init__(self, cfg: ChargeServiceConfig, logger):
         self.cfg = cfg
         self.logger = logger
-        self.reader = ChargeExcelReader()
+        self.reader = ChargeExcelReader(logger=self.logger)
         self.processor = RawChargeProcessor()
         self.charge_cfg = self._load_charge_cfg()
         self.snapshot_repo = HopperSnapshotRepository(

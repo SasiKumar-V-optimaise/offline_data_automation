@@ -11,6 +11,9 @@ dpr:
     conflict_cols: [date_time]
     upsert_mode: delete_insert
 
+  influx:
+    measurement: dpr_data
+
   fields:
     Date: date_time
 
@@ -50,6 +53,34 @@ dpr:
     "GCP Dust (Silo's)": gcp_dust_mt
     "Stock House Dust": stock_house_dust_mt
     "Cast House Dust": cast_house_dust_mt
+
+  dpr_fields:
+    Date: date
+    COKE_OFFLINE_MT: coke_offline_mt
+    COKE_ONLINE_MT: coke_online_mt
+    TOtAL_PURCHASE_COKE_MT: total_purchase_coke_mt
+    DOLOMITE_MT: dolomite_mt
+    TOTAL_COKE_MT: total_coke_mt
+    YARD_NUTCOKE_MT: yard_nutcoke_mt
+    PRIME_NUT_COKE_MT: prime_nut_coke_mt
+    GEOMIN_MT: geomin_mt
+    JRSVENTURES_MT: jrsventures_mt
+    LLOYDS_FINES_MT: lloyds_fines_mt
+    LLOYDS_MT: lloyds_mt
+    TOTAL_PELLET_MT: total_pellet_mt
+    NMDC_MT: nmdc_mt
+    NMDC_ROM_MT: nmdc_rom_mt
+    PCI_MT: pci_mt
+    QUARTZITE_MT: quartzite_mt
+    SINTER_SP_02_MT: sinter_sp_02_mt
+    "Acore MN Ore_MT": acore_mn_ore_mt
+    GOMTI_MT: gomti_mt
+    TOTAL_HOT_METAL_MT: total_hot_metal_mt
+    SLAG_GENERATION_MT: slag_generation_mt
+    FLUE_DUST_MT: flue_dust_mt
+    GCP_DUST_MT: gcp_dust_mt
+    STOCK_HOUSE_DUST_MT: stock_house_dust_mt
+    CAST_HOUSE_DUST_MT: cast_house_dust_mt
 
   config:
     defaults:

@@ -1,4 +1,7 @@
 hot_metal:
+  influx:
+    measurement: hotmetal_slag_updated_data
+
   hot_metal_config:
     sheet_name: JAN-26
     sheets:
