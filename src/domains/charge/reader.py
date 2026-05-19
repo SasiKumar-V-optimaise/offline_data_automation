@@ -62,12 +62,18 @@ class ChargeExcelReader:
         preview = pd.read_excel(file_path, sheet_name=sheet, header=None, nrows=50)
 
         for i in range(len(preview)):
-            row = preview.iloc[i].astype(str).str.upper().tolist()
+            row = [self._preview_cell_text(value) for value in preview.iloc[i].tolist()]
 
             if "DATETIME" in row and any("HOPPER" in x for x in row):
                 return i
 
         raise ValueError("Could not detect header row")
+
+    @staticmethod
+    def _preview_cell_text(value) -> str:
+        if pd.isna(value):
+            return ""
+        return str(value).strip().upper()
 
     @staticmethod
     def _clean_col(value) -> str:

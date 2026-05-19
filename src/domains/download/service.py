@@ -6,11 +6,14 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, Set, List
+from zoneinfo import ZoneInfo
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
+
+BUSINESS_TZ = ZoneInfo("Asia/Kolkata")
 
 
 # -------------------------------------------------
@@ -390,7 +393,7 @@ class PortalDownloader:
             # ---------------- CHARGE ----------------
             if "charge" in modes:
                 charge_dates = (
-                    [datetime.today().strftime("%d-%b-%Y")]
+                    [datetime.now(BUSINESS_TZ).strftime("%d-%b-%Y")]
                     if is_today_mode
                     else run_dates
                 )

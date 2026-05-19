@@ -3,6 +3,7 @@ import argparse
 from datetime import datetime, timedelta
 from pathlib import Path
 import re
+from zoneinfo import ZoneInfo
 
 import yaml
 
@@ -17,6 +18,8 @@ from domains.dpr.service import DPRService
 from domains.hot_metal.service import HotMetalService
 from domains.rm_hm.service import RMHMService
 from domains.charge.service import ChargeService, ChargeServiceConfig
+
+BUSINESS_TZ = ZoneInfo("Asia/Kolkata")
 
 
 # -------------------------------------------------
@@ -56,7 +59,7 @@ def parse_args():
 # -------------------------------------------------
 def parse_run_dates(raw: str | None, today: bool) -> list[str]:
     if today:
-        return [datetime.today().strftime("%d-%b-%Y")]
+        return [datetime.now(BUSINESS_TZ).strftime("%d-%b-%Y")]
 
     if not raw:
         raise SystemExit("Provide --today or --rundate")
