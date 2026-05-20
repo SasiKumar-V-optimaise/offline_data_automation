@@ -57,7 +57,7 @@ class FinesAnalysisService:
 
         combined = pd.concat(parts, ignore_index=True)
         ordered_cols = ["date_time", "material_code"] + [
-            col for col in self.transformer.SIZE_COLUMNS.values() if col in combined.columns
+            col for col in self.transformer.OUTPUT_SIZE_COLUMNS if col in combined.columns
         ]
         combined = combined.reindex(columns=ordered_cols)
         combined = combined.sort_values(["date_time", "material_code"]).reset_index(drop=True)

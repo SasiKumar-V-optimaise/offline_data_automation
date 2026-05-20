@@ -8,24 +8,34 @@ import pandas as pd
 
 class FinesAnalysisTransformer:
     VALID_SHIFTS = {"A", "B", "C"}
+    SIZE_COLUMN_SPECS = (
+        ("plus", 100, "plus_100mm"),
+        ("plus", 90, "plus_90mm"),
+        ("plus", 80, "plus_80mm"),
+        ("plus", 70, "plus_70mm"),
+        ("plus", 60, "plus_60mm"),
+        ("plus", 50, "plus_50mm"),
+        ("plus", 40, "plus_40mm"),
+        ("plus", 30, "plus_30mm"),
+        ("plus", 25, "plus_25mm"),
+        ("plus", 20, "plus_20mm"),
+        ("plus", 16, "plus_16mm"),
+        ("plus", 12, "plus_12mm"),
+        ("plus", 10, "plus_10mm"),
+        ("plus", 8, "plus_8mm"),
+        ("plus", 6, "plus_6mm"),
+        ("plus", 5, "plus_5mm"),
+        ("minus", 10, "minus_10mm"),
+        ("minus", 6, "minus_6mm"),
+        ("minus", 5, "minus_5mm"),
+    )
     SIZE_COLUMNS = {
-        100: "plus_100mm",
-        90: "plus_90mm",
-        80: "plus_80mm",
-        70: "plus_70mm",
-        60: "plus_60mm",
-        50: "plus_50mm",
-        40: "plus_40mm",
-        30: "plus_30mm",
-        25: "plus_25mm",
-        20: "plus_20mm",
-        16: "plus_16mm",
-        12: "plus_12mm",
-        10: "plus_10mm",
-        8: "plus_8mm",
-        6: "plus_6mm",
-        5: "plus_5mm",
+        (direction, size): column
+        for direction, size, column in SIZE_COLUMN_SPECS
     }
+    OUTPUT_SIZE_COLUMNS = [
+        column for _, _, column in SIZE_COLUMN_SPECS
+    ]
 
     def __init__(self, logger):
         self.logger = logger
@@ -43,9 +53,9 @@ class FinesAnalysisTransformer:
             self.logger.warning(f"No DATE column found for {cfg['sheet_name']}")
             return pd.DataFrame()
 
-        plus_column_map = self._plus_column_map(df.columns)
-        if not plus_column_map:
-            self.logger.warning(f"No supported +mm columns found for {cfg['sheet_name']}")
+        size_column_map = self._size_column_map(df.columns)
+        if not size_column_map:
+            self.logger.warning(f"No supported size-analysis columns found for {cfg['sheet_name']}")
             return pd.DataFrame()
 
         out = pd.DataFrame()
@@ -68,7 +78,7 @@ class FinesAnalysisTransformer:
         else:
             out["shift"] = pd.NA
 
-        for source_col, target_col in plus_column_map.items():
+        for source_col, target_col in size_column_map.items():
             values = self._replace_invalid_markers(df[source_col], cfg)
             values = pd.to_numeric(values, errors="coerce")
             if target_col in out:
@@ -80,8 +90,8 @@ class FinesAnalysisTransformer:
         if shift_col:
             out = out[out["shift"].isin(self.VALID_SHIFTS)]
 
-        plus_cols = self.output_size_columns(out)
-        out = out.dropna(subset=plus_cols, how="all")
+        size_cols = self.output_size_columns(out)
+        out = out.dropna(subset=size_cols, how="all")
         if out.empty:
             return pd.DataFrame()
 
@@ -93,10 +103,10 @@ class FinesAnalysisTransformer:
         )
         out["material_code"] = material_code
 
-        result_cols = ["date_time", "material_code"] + plus_cols
+        result_cols = ["date_time", "material_code"] + size_cols
         out = out[result_cols].dropna(subset=["date_time"])
 
-        for col in plus_cols:
+        for col in size_cols:
             out[col] = out[col].round(3)
 
         return (
@@ -130,38 +140,55 @@ class FinesAnalysisTransformer:
         return pd.Series(timestamps, index=dates.index)
 
     @classmethod
-    def _plus_column_map(cls, columns) -> dict[str, str]:
+    def _size_column_map(cls, columns) -> dict[str, str]:
         out: dict[str, str] = {}
         for col in columns:
-            size = cls._parse_plus_size(str(col))
-            if size is None:
+            parsed = cls._parse_size_header(str(col))
+            if parsed is None:
                 continue
-            target_col = cls.SIZE_COLUMNS.get(size)
+            target_col = cls.SIZE_COLUMNS.get(parsed)
             if target_col:
                 out[str(col)] = target_col
         return out
 
     @classmethod
     def output_size_columns(cls, df: pd.DataFrame) -> list[str]:
-        return [col for col in cls.SIZE_COLUMNS.values() if col in df.columns]
+        return [col for col in cls.OUTPUT_SIZE_COLUMNS if col in df.columns]
 
-    @staticmethod
-    def _parse_plus_size(header: str) -> int | None:
-        normalized = (
-            header.upper()
-            .replace("\u00a0", " ")
-            .replace("%", " ")
-            .replace("(", " ")
-            .replace(")", " ")
-        )
+    @classmethod
+    def _parse_size_header(cls, header: str) -> tuple[str, int] | None:
+        normalized = cls._normalize_size_header(header)
         if "MESH" in normalized:
             return None
 
-        match = re.search(r"\+\s*0*(\d+)\s*(?:MM)?\b", normalized)
-        if not match:
-            return None
+        patterns = (
+            ("plus", r"(?:\+|PLUS)\s*0*(\d+)\s*(?:MM)?\b"),
+            ("minus", r"(?:-|MINUS|BELOW|<)\s*0*(\d+)\s*(?:MM)?\b"),
+        )
+        for direction, pattern in patterns:
+            match = re.search(pattern, normalized)
+            if match:
+                return direction, int(match.group(1))
 
-        return int(match.group(1))
+        return None
+
+    @staticmethod
+    def _normalize_size_header(header: str) -> str:
+        return (
+            str(header)
+            .upper()
+            .replace("\u00a0", " ")
+            .replace("\u2212", "-")
+            .replace("\u2010", "-")
+            .replace("\u2011", "-")
+            .replace("\u2012", "-")
+            .replace("\u2013", "-")
+            .replace("\u2014", "-")
+            .replace("%", " ")
+            .replace("(", " ")
+            .replace(")", " ")
+            .replace("_", " ")
+        )
 
     @staticmethod
     def _normalize_column_name(value: str) -> str:

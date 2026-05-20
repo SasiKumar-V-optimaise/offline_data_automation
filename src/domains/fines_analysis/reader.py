@@ -39,8 +39,8 @@ class FinesAnalysisReader:
         return frames
 
     def _read_sheet(self, worksheet, cfg: dict[str, Any]) -> pd.DataFrame:
-        min_col, max_col = self._parse_column_range(cfg["columns"])
         header_row = int(cfg["header_row"])
+        min_col, max_col = self._resolve_column_bounds(worksheet, cfg, header_row)
         empty_row_limit = int(cfg.get("empty_row_limit", 50))
 
         headers = [
@@ -87,6 +87,38 @@ class FinesAnalysisReader:
     def _parse_column_range(column_range: str) -> tuple[int, int]:
         start, end = [part.strip() for part in column_range.split(":", 1)]
         return column_index_from_string(start), column_index_from_string(end)
+
+    def _resolve_column_bounds(
+        self,
+        worksheet,
+        cfg: dict[str, Any],
+        header_row: int,
+    ) -> tuple[int, int]:
+        min_col, configured_max_col = self._parse_column_range(cfg["columns"])
+        if not cfg.get("auto_extend_columns", True):
+            return min_col, configured_max_col
+
+        max_extra_cols = int(cfg.get("max_extra_columns", 20))
+        scan_max_col = min(
+            worksheet.max_column,
+            configured_max_col + max(0, max_extra_cols),
+        )
+        if scan_max_col <= configured_max_col:
+            return min_col, configured_max_col
+
+        max_col = configured_max_col
+        for row in worksheet.iter_rows(
+            min_row=header_row,
+            max_row=header_row,
+            min_col=configured_max_col + 1,
+            max_col=scan_max_col,
+            values_only=True,
+        ):
+            for offset, value in enumerate(row, start=1):
+                if value is not None and str(value).strip():
+                    max_col = configured_max_col + offset
+
+        return min_col, max_col
 
     @staticmethod
     def _header_name(value: Any, column_index: int) -> str:
